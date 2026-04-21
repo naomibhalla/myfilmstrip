@@ -1,5 +1,4 @@
 // Image processing recipes for 3 vintage film strip styles.
-// Each function takes a loaded HTMLImageElement and returns a canvas with effects applied.
 
 export type FilmStyle = "classic-bw" | "warm-vintage" | "film-camera";
 
@@ -43,53 +42,6 @@ function applyGrain(
   ctx.putImageData(img, 0, 0);
 }
 
-// Organic grain that varies across the image (not a flat overlay)
-// Higher intensity in shadows & highlights, less in midtones (like real film)
-function applyOrganicGrain(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  baseIntensity: number,
-  seed = 1
-) {
-  const img = ctx.getImageData(0, 0, w, h);
-  const data = img.data;
-  const rand = seededRandom(seed);
-
-  // Precompute a low-frequency noise field for grain density variation
-  const fieldSize = 64;
-  const field = new Float32Array(fieldSize * fieldSize);
-  for (let i = 0; i < field.length; i++) {
-    field[i] = rand();
-  }
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = (y * w + x) * 4;
-      const lum =
-        0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-
-      // Grain amount peaks in shadows & highlights
-      const midDistance = Math.abs(lum - 128) / 128; // 0 at mid, 1 at extremes
-      const tonalMultiplier = 0.5 + midDistance * 0.8; // 0.5x to 1.3x
-
-      // Low-freq density variation
-      const fx = Math.floor((x / w) * fieldSize);
-      const fy = Math.floor((y / h) * fieldSize);
-      const densityMultiplier = 0.7 + field[fy * fieldSize + fx] * 0.6; // 0.7x to 1.3x
-
-      const amount = baseIntensity * tonalMultiplier * densityMultiplier;
-      // Fine grain (finer than flat noise)
-      const n = (rand() - 0.5) * amount;
-
-      data[idx] = clamp(data[idx] + n);
-      data[idx + 1] = clamp(data[idx + 1] + n * 0.95);
-      data[idx + 2] = clamp(data[idx + 2] + n * 0.9);
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
 // ========== VIGNETTE ==========
 
 function applyVignette(
@@ -112,7 +64,7 @@ function applyVignette(
   ctx.fillRect(0, 0, w, h);
 }
 
-// ========== LIGHT LEAK ==========
+// ========== LIGHT LEAK (used by film-camera recipe) ==========
 
 function applyLightLeak(
   ctx: CanvasRenderingContext2D,
@@ -141,8 +93,9 @@ function applyLightLeak(
   ctx.restore();
 }
 
-// Subtle warm, asymmetric light leak — not symmetrical, not centered
-function applyWarmVintageLeak(
+// ========== SUBTLE DUST (for warm-vintage — light, not heavy) ==========
+
+function applySubtleDust(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
@@ -150,93 +103,26 @@ function applyWarmVintageLeak(
 ) {
   const rand = seededRandom(seed);
   ctx.save();
-  ctx.globalCompositeOperation = "screen";
 
-  // 1-2 soft leaks in random corners
-  const cornerSeeds = [
-    { x: w * (0.85 + rand() * 0.2), y: h * (rand() * 0.2) }, // top-right-ish
-    { x: w * (rand() * 0.2), y: h * (0.8 + rand() * 0.2) }, // bottom-left-ish
-  ];
-
-  cornerSeeds.forEach((corner, i) => {
-    const r = Math.max(w, h) * (0.35 + rand() * 0.25);
-    const grad = ctx.createRadialGradient(corner.x, corner.y, 0, corner.x, corner.y, r);
-    // Soft warm amber — different for each leak
-    if (i === 0) {
-      grad.addColorStop(0, "rgba(255, 190, 120, 0.28)");
-      grad.addColorStop(0.5, "rgba(255, 180, 110, 0.10)");
-      grad.addColorStop(1, "rgba(255, 180, 110, 0)");
-    } else {
-      grad.addColorStop(0, "rgba(240, 160, 90, 0.18)");
-      grad.addColorStop(0.6, "rgba(240, 160, 90, 0.06)");
-      grad.addColorStop(1, "rgba(240, 160, 90, 0)");
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-  });
-
-  ctx.restore();
-}
-
-// Uneven exposure — a very subtle low-frequency brightness variation
-function applyUnevenExposure(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  seed = 1
-) {
-  const rand = seededRandom(seed);
-  // 1-2 very soft bright/dark patches
-  ctx.save();
-
-  // Slight brighter patch
-  const bx = rand() * w;
-  const by = rand() * h;
-  const br = Math.max(w, h) * 0.6;
-  const brightGrad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-  brightGrad.addColorStop(0, "rgba(255, 240, 220, 0.08)");
-  brightGrad.addColorStop(1, "rgba(255, 240, 220, 0)");
-  ctx.globalCompositeOperation = "screen";
-  ctx.fillStyle = brightGrad;
-  ctx.fillRect(0, 0, w, h);
-
-  // Slight darker patch
-  const dx = rand() * w;
-  const dy = rand() * h;
-  const dr = Math.max(w, h) * 0.5;
-  const darkGrad = ctx.createRadialGradient(dx, dy, 0, dx, dy, dr);
-  darkGrad.addColorStop(0, "rgba(60, 45, 30, 0.08)");
-  darkGrad.addColorStop(1, "rgba(60, 45, 30, 0)");
-  ctx.globalCompositeOperation = "multiply";
-  ctx.fillStyle = darkGrad;
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.restore();
-}
-
-// Highlight bloom — brighten already-bright pixels slightly
-function applyBloom(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  strength: number
-) {
-  const img = ctx.getImageData(0, 0, w, h);
-  const data = img.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const lum =
-      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-    if (lum > 180) {
-      const boost = ((lum - 180) / 75) * strength;
-      data[i] = clamp(data[i] + boost * 8);
-      data[i + 1] = clamp(data[i + 1] + boost * 7);
-      data[i + 2] = clamp(data[i + 2] + boost * 5);
-    }
+  // Small scattered dust specks
+  for (let i = 0; i < 22; i++) {
+    const x = rand() * w;
+    const y = rand() * h;
+    const size = rand() * 1.4 + 0.3;
+    const alpha = rand() * 0.18 + 0.05;
+    const isLight = rand() > 0.5;
+    ctx.fillStyle = isLight
+      ? `rgba(255, 245, 230, ${alpha})`
+      : `rgba(50, 30, 15, ${alpha * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.putImageData(img, 0, 0);
+
+  ctx.restore();
 }
 
-// ========== DUST & SCRATCHES ==========
+// ========== HEAVIER DUST & SCRATCHES (film-camera) ==========
 
 function applyDustScratches(
   ctx: CanvasRenderingContext2D,
@@ -267,51 +153,6 @@ function applyDustScratches(
     const y2 = y1 + Math.sin(angle) * len;
     ctx.strokeStyle = `rgba(255,255,255,${rand() * 0.2 + 0.05})`;
     ctx.lineWidth = rand() * 0.8 + 0.3;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-// Subtle dust only — no big scratches (for warm vintage, not heavy)
-function applySubtleDust(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  seed = 1
-) {
-  const rand = seededRandom(seed);
-  ctx.save();
-
-  // Small, scattered dust specks (fewer, subtler)
-  for (let i = 0; i < 25; i++) {
-    const x = rand() * w;
-    const y = rand() * h;
-    const size = rand() * 1.5 + 0.3;
-    const alpha = rand() * 0.2 + 0.05;
-    // Mix of light and dark specks for realism
-    const isLight = rand() > 0.5;
-    ctx.fillStyle = isLight
-      ? `rgba(255, 245, 230, ${alpha})`
-      : `rgba(60, 40, 20, ${alpha * 0.8})`;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Very few, short, faint scratches (not dramatic)
-  for (let i = 0; i < 2; i++) {
-    const x1 = rand() * w;
-    const y1 = rand() * h;
-    const len = rand() * h * 0.15 + 10;
-    const angle = (rand() - 0.5) * 0.2 + Math.PI / 2;
-    const x2 = x1 + Math.cos(angle) * len;
-    const y2 = y1 + Math.sin(angle) * len;
-    ctx.strokeStyle = `rgba(255, 240, 220, ${rand() * 0.1 + 0.03})`;
-    ctx.lineWidth = rand() * 0.5 + 0.2;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
@@ -359,7 +200,9 @@ function recipeClassicBW(img: HTMLImageElement, w: number, h: number) {
   return canvas;
 }
 
-// ========== RECIPE 2: WARM VINTAGE (NEW — scanned photobooth print feel) ==========
+// ========== RECIPE 2: WARM VINTAGE ==========
+// Clean photobooth-style brown tones: B&W base + warm sepia-brown tint
+// Contrasty and crisp (not faded or hazy). Light grain + subtle dust.
 
 function recipeWarmVintage(img: HTMLImageElement, w: number, h: number) {
   const canvas = makeCanvas(w, h);
@@ -367,65 +210,35 @@ function recipeWarmVintage(img: HTMLImageElement, w: number, h: number) {
 
   ctx.drawImage(img, 0, 0, w, h);
 
-  // Step 1: Very subtle blur — remove digital sharpness
-  applyBlur(ctx, 0.35);
-
-  // Step 2: Color & tone — warm brown/yellow shift, lifted blacks, desaturated
+  // Step 1: Convert to B&W with a bit of contrast boost (like a real photobooth print)
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i];
-    let g = data[i + 1];
-    let b = data[i + 2];
+    // Luminosity grayscale
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    // Slight contrast boost — crisp but not harsh
+    const contrasted = clamp((gray - 128) * 1.15 + 128);
 
-    // Desaturate slightly (muted, aged look)
-    // Convert toward luminosity, but only partially (keep some color)
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    const desatAmount = 0.25;
-    r = r * (1 - desatAmount) + lum * desatAmount;
-    g = g * (1 - desatAmount) + lum * desatAmount;
-    b = b * (1 - desatAmount) + lum * desatAmount;
+    // Step 2: Apply warm sepia-brown tint via per-channel multipliers
+    // Classic sepia: red boosted, green mid, blue cut
+    const r = clamp(contrasted * 1.02 + 18); // warm shadows
+    const g = clamp(contrasted * 0.92 + 8);
+    const b = clamp(contrasted * 0.7); // cool tones muted
 
-    // Reduced contrast (softer)
-    r = (r - 128) * 0.82 + 128;
-    g = (g - 128) * 0.82 + 128;
-    b = (b - 128) * 0.82 + 128;
-
-    // Lift blacks (faded shadows) — nothing sits at pure black
-    r = r * 0.9 + 24;
-    g = g * 0.9 + 20;
-    b = b * 0.9 + 14;
-
-    // Warm brown/yellow shift (gentle sepia, not orange)
-    // Boost red and green a bit, drop blue — brown/yellow
-    r = r * 1.06 + 4;
-    g = g * 1.02 + 2;
-    b = b * 0.82;
-
-    // Clamp
-    data[i] = clamp(r);
-    data[i + 1] = clamp(g);
-    data[i + 2] = clamp(b);
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // Step 3: Highlight bloom — subtle glow on brights
-  applyBloom(ctx, w, h, 1.0);
+  // Step 3: Light grain — noticeable but not heavy
+  applyGrain(ctx, w, h, 18, 47);
 
-  // Step 4: Organic, realistic grain (varies across image)
-  applyOrganicGrain(ctx, w, h, 22, 47);
-
-  // Step 5: Subtle dust + very faint short scratches
+  // Step 4: Subtle dust specks (no scratches)
   applySubtleDust(ctx, w, h, 53);
 
-  // Step 6: Uneven exposure (very subtle brightness variation)
-  applyUnevenExposure(ctx, w, h, 59);
-
-  // Step 7: Soft warm light leaks (asymmetric)
-  applyWarmVintageLeak(ctx, w, h, 61);
-
-  // Step 8: Very soft vignette to darken edges
-  applyVignette(ctx, w, h, 0.2);
+  // Step 5: Very subtle vignette for print feel
+  applyVignette(ctx, w, h, 0.18);
 
   return canvas;
 }

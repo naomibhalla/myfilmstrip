@@ -24,8 +24,13 @@ import StylePicker from "@/components/StylePicker";
 import DevelopingLoader from "@/components/DevelopingLoader";
 import CameraCapture from "@/components/CameraCapture";
 import UploadOnboarding from "@/components/UploadOnboarding";
+import HowItWorks from "@/components/HowItWorks";
 import { FilmStyle } from "@/lib/imageProcessing";
-import { generateFilmStrip } from "@/lib/filmStripLayout";
+import {
+  generateFilmStrip,
+  Orientation,
+  BorderColor,
+} from "@/lib/filmStripLayout";
 
 type Photo = { id: string; src: string };
 type Screen = "home" | "upload" | "editor" | "camera" | "result";
@@ -36,6 +41,8 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [style, setStyle] = useState<FilmStyle>("warm-vintage");
+  const [orientation, setOrientation] = useState<Orientation>("vertical");
+  const [borderColor, setBorderColor] = useState<BorderColor>("white");
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
@@ -117,6 +124,8 @@ export default function Home() {
         generateFilmStrip({
           imageSrcs: photos.map((p) => p.src),
           style,
+          orientation,
+          borderColor,
         }),
         new Promise((r) => setTimeout(r, 1800)),
       ]);
@@ -167,7 +176,11 @@ export default function Home() {
             key="editor"
             photos={photos}
             style={style}
+            orientation={orientation}
+            borderColor={borderColor}
             onStyleChange={setStyle}
+            onOrientationChange={setOrientation}
+            onBorderColorChange={setBorderColor}
             onAddMoreFiles={handleEditorAddMore}
             onRemove={handleRemove}
             onShuffle={handleShuffle}
@@ -215,13 +228,13 @@ function HomeScreen({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative"
+      className="min-h-screen flex flex-col items-center px-6 py-12 relative"
     >
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.15, duration: 0.6 }}
-        className="text-center relative z-10 flex flex-col items-center w-full max-w-md"
+        className="text-center relative z-10 flex flex-col items-center w-full max-w-md pt-12"
       >
         <div className="font-mono font-light text-[11px] tracking-[4px] uppercase text-ink/70 mb-3">
           · made in toronto ·
@@ -254,7 +267,7 @@ function HomeScreen({
           </button>
         </div>
 
-        <p className="font-italic italic text-sepia text-sm mb-10">
+        <p className="font-italic italic text-sepia text-sm mb-6">
           turn your favourite photos into film strips. free. instantly.
         </p>
 
@@ -262,6 +275,8 @@ function HomeScreen({
           — up to 4 photos —
         </div>
       </motion.div>
+
+      <HowItWorks />
     </motion.section>
   );
 }
@@ -418,7 +433,11 @@ function HeroComposition() {
 function EditorScreen({
   photos,
   style,
+  orientation,
+  borderColor,
   onStyleChange,
+  onOrientationChange,
+  onBorderColorChange,
   onAddMoreFiles,
   onRemove,
   onShuffle,
@@ -429,7 +448,11 @@ function EditorScreen({
 }: {
   photos: Photo[];
   style: FilmStyle;
+  orientation: Orientation;
+  borderColor: BorderColor;
   onStyleChange: (s: FilmStyle) => void;
+  onOrientationChange: (o: Orientation) => void;
+  onBorderColorChange: (b: BorderColor) => void;
   onAddMoreFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
   onShuffle: () => void;
@@ -480,6 +503,7 @@ function EditorScreen({
         </div>
       </div>
 
+      {/* Photos */}
       <div className="tape paper-card rounded-sm p-5 md:p-6 mb-6">
         <div className="flex justify-between items-end mb-4">
           <div>
@@ -539,6 +563,7 @@ function EditorScreen({
         </DndContext>
       </div>
 
+      {/* Style */}
       <div className="paper-card rounded-sm p-5 md:p-6 mb-6 relative">
         <div
           className="absolute -top-2 left-6 w-20 h-5 bg-rose/60 border border-rose/30"
@@ -551,6 +576,69 @@ function EditorScreen({
           <div className="font-display text-2xl">pick your vibe</div>
         </div>
         <StylePicker value={style} onChange={onStyleChange} />
+      </div>
+
+      {/* Orientation & Border toggles */}
+      <div className="paper-card rounded-sm p-5 md:p-6 mb-6 grid grid-cols-2 gap-5">
+        {/* Orientation */}
+        <div>
+          <div className="font-italic italic text-sepia text-xs mb-1">
+            orientation
+          </div>
+          <div className="font-display text-lg mb-3">strip layout</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onOrientationChange("vertical")}
+              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border ${
+                orientation === "vertical"
+                  ? "bg-ink text-cream border-ink"
+                  : "bg-transparent text-ink border-sand hover:border-ink"
+              }`}
+            >
+              ↓ vertical
+            </button>
+            <button
+              onClick={() => onOrientationChange("horizontal")}
+              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border ${
+                orientation === "horizontal"
+                  ? "bg-ink text-cream border-ink"
+                  : "bg-transparent text-ink border-sand hover:border-ink"
+              }`}
+            >
+              → horizontal
+            </button>
+          </div>
+        </div>
+
+        {/* Border */}
+        <div>
+          <div className="font-italic italic text-sepia text-xs mb-1">
+            border
+          </div>
+          <div className="font-display text-lg mb-3">frame color</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onBorderColorChange("white")}
+              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border-2 ${
+                borderColor === "white"
+                  ? "bg-cream text-ink border-ink"
+                  : "bg-transparent text-ink border-sand hover:border-ink"
+              }`}
+            >
+              white
+            </button>
+            <button
+              onClick={() => onBorderColorChange("black")}
+              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border-2 ${
+                borderColor === "black"
+                  ? "bg-ink text-cream border-ink"
+                  : "bg-transparent text-ink border-sand hover:border-ink"
+              }`}
+            >
+              black
+            </button>
+          </div>
+        </div>
       </div>
 
       <motion.button
@@ -621,7 +709,7 @@ function ResultScreen({
         initial={{ y: -40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.6, type: "spring" }}
-        className="relative mx-auto mb-10 max-w-[340px]"
+        className="relative mx-auto mb-10 max-w-[420px]"
       >
         <img
           src={resultUrl}

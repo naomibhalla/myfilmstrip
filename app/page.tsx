@@ -23,11 +23,12 @@ import SortablePhoto from "@/components/SortablePhoto";
 import StylePicker from "@/components/StylePicker";
 import DevelopingLoader from "@/components/DevelopingLoader";
 import CameraCapture from "@/components/CameraCapture";
+import UploadOnboarding from "@/components/UploadOnboarding";
 import { FilmStyle } from "@/lib/imageProcessing";
 import { generateFilmStrip } from "@/lib/filmStripLayout";
 
 type Photo = { id: string; src: string };
-type Screen = "home" | "editor" | "camera" | "result";
+type Screen = "home" | "upload" | "editor" | "camera" | "result";
 
 const ROTATIONS = [-2, 1.5, -1, 2.5];
 
@@ -37,7 +38,6 @@ export default function Home() {
   const [style, setStyle] = useState<FilmStyle>("warm-vintage");
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -45,12 +45,9 @@ export default function Home() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    const remaining = 4 - photos.length;
-    const toAdd = files.slice(0, remaining);
-    Promise.all(
-      toAdd.map(
+  function filesToPhotos(files: File[]): Promise<Photo[]> {
+    return Promise.all(
+      files.map(
         (file) =>
           new Promise<Photo>((resolve) => {
             const reader = new FileReader();
@@ -62,11 +59,19 @@ export default function Home() {
             reader.readAsDataURL(file);
           })
       )
-    ).then((newPhotos) => {
-      setPhotos((prev) => [...prev, ...newPhotos]);
-      if (screen === "home") setScreen("editor");
-    });
-    if (event.target) event.target.value = "";
+    );
+  }
+
+  async function handleOnboardingFiles(files: File[]) {
+    const newPhotos = await filesToPhotos(files);
+    setPhotos(newPhotos);
+    setScreen("editor");
+  }
+
+  async function handleEditorAddMore(files: File[]) {
+    const remaining = 4 - photos.length;
+    const newPhotos = await filesToPhotos(files.slice(0, remaining));
+    setPhotos((prev) => [...prev, ...newPhotos]);
   }
 
   function handleRemove(id: string) {
@@ -140,27 +145,21 @@ export default function Home() {
     setScreen("home");
   }
 
-  const fileInput = (
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept="image/*"
-      multiple
-      onChange={handleFileSelect}
-      className="hidden"
-    />
-  );
-
   return (
     <main className="min-h-screen w-full">
-      {fileInput}
-
       <AnimatePresence mode="wait">
         {screen === "home" && (
           <HomeScreen
             key="home"
-            onUpload={() => fileInputRef.current?.click()}
+            onUpload={() => setScreen("upload")}
             onCamera={() => setScreen("camera")}
+          />
+        )}
+        {screen === "upload" && (
+          <UploadOnboarding
+            key="upload"
+            onFilesSelected={handleOnboardingFiles}
+            onBack={() => setScreen("home")}
           />
         )}
         {screen === "editor" && (
@@ -169,7 +168,7 @@ export default function Home() {
             photos={photos}
             style={style}
             onStyleChange={setStyle}
-            onAddMore={() => fileInputRef.current?.click()}
+            onAddMoreFiles={handleEditorAddMore}
             onRemove={handleRemove}
             onShuffle={handleShuffle}
             onDragEnd={handleDragEnd}
@@ -224,17 +223,14 @@ function HomeScreen({
         transition={{ delay: 0.15, duration: 0.6 }}
         className="text-center relative z-10 flex flex-col items-center w-full max-w-md"
       >
-        {/* MADE IN TORONTO stamp */}
         <div className="font-mono font-light text-[11px] tracking-[4px] uppercase text-ink/70 mb-3">
           · made in toronto ·
         </div>
 
-        {/* Hero title */}
         <h1 className="font-display text-7xl md:text-[88px] leading-[0.95] mb-2 text-ink">
           myfilmstrip
         </h1>
 
-        {/* Subheading with flanking lines */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="w-10 h-px bg-sand" />
           <span className="font-italic italic text-sepia text-base">
@@ -243,12 +239,10 @@ function HomeScreen({
           <div className="w-10 h-px bg-sand" />
         </div>
 
-        {/* Hero: polaroid + film strip + note card */}
         <div className="mb-10">
           <HeroComposition />
         </div>
 
-        {/* CTAs */}
         <div className="flex flex-col gap-3 w-full max-w-[360px] mb-4">
           <button onClick={onUpload} className="btn-ink group">
             <span>upload photos</span>
@@ -260,7 +254,6 @@ function HomeScreen({
           </button>
         </div>
 
-        {/* Tagline below buttons */}
         <p className="font-italic italic text-sepia text-sm mb-10">
           turn your favourite photos into film strips. free. instantly.
         </p>
@@ -273,11 +266,6 @@ function HomeScreen({
   );
 }
 
-// Hero composition matching the Figma mockup:
-// Left: 1 polaroid (hero1), tilted slightly left
-// Right: vertical film strip with 3 frames (hero2, hero3, hero4), tilted slightly right
-// Center overlapping: handwritten note card
-// Whole composition lifts and tilts 3D on hover
 function HeroComposition() {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -303,7 +291,6 @@ function HeroComposition() {
         }}
         transition={{ type: "spring", stiffness: 180, damping: 18 }}
       >
-        {/* LEFT: Single polaroid */}
         <motion.div
           className="absolute bg-white p-2 pb-6 rounded-sm"
           style={{
@@ -332,7 +319,6 @@ function HeroComposition() {
           </div>
         </motion.div>
 
-        {/* RIGHT: Vertical film strip with 3 frames */}
         <motion.div
           className="absolute rounded-sm"
           style={{
@@ -351,11 +337,7 @@ function HeroComposition() {
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         >
           <div className="flex flex-col gap-1.5">
-            {[
-              "/hero2.jpeg",
-              "/hero3.jpeg",
-              "/hero4.jpeg",
-            ].map((src, i) => (
+            {["/hero2.jpeg", "/hero3.jpeg", "/hero4.jpeg"].map((src, i) => (
               <div
                 key={i}
                 className="w-full bg-ink overflow-hidden rounded-[2px]"
@@ -372,7 +354,6 @@ function HeroComposition() {
           </div>
         </motion.div>
 
-        {/* NOTE CARD - center overlapping */}
         <motion.div
           className="absolute p-4 rounded-sm"
           style={{
@@ -410,7 +391,6 @@ function HeroComposition() {
           </div>
         </motion.div>
 
-        {/* Tape on note card */}
         <motion.div
           className="absolute pointer-events-none"
           style={{
@@ -439,7 +419,7 @@ function EditorScreen({
   photos,
   style,
   onStyleChange,
-  onAddMore,
+  onAddMoreFiles,
   onRemove,
   onShuffle,
   onDragEnd,
@@ -450,7 +430,7 @@ function EditorScreen({
   photos: Photo[];
   style: FilmStyle;
   onStyleChange: (s: FilmStyle) => void;
-  onAddMore: () => void;
+  onAddMoreFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
   onShuffle: () => void;
   onDragEnd: (e: DragEndEvent) => void;
@@ -458,6 +438,14 @@ function EditorScreen({
   onBack: () => void;
   sensors: ReturnType<typeof useSensors>;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) onAddMoreFiles(files);
+    if (e.target) e.target.value = "";
+  }
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 10 }}
@@ -466,6 +454,15 @@ function EditorScreen({
       transition={{ duration: 0.35 }}
       className="min-h-screen w-full px-5 py-8 md:py-12 max-w-2xl mx-auto"
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleFileInput}
+        className="hidden"
+      />
+
       <div className="flex justify-between items-start mb-8">
         <button
           onClick={onBack}
@@ -526,7 +523,7 @@ function EditorScreen({
               ))}
               {photos.length < 4 && (
                 <button
-                  onClick={onAddMore}
+                  onClick={() => fileInputRef.current?.click()}
                   className="aspect-[3/4] border-2 border-dashed border-sand/70 bg-ecru/40 hover:bg-ecru hover:border-sepia rounded-sm flex flex-col items-center justify-center gap-2 transition-all group"
                 >
                   <div className="text-3xl text-sand group-hover:text-sepia transition-colors">

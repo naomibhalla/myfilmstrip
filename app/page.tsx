@@ -391,7 +391,7 @@ function HeroComposition() {
           <p
             className="text-ink/85 leading-[1.3] mb-2 text-left"
             style={{
-              fontFamily: "'Caveat', 'Shadows Into Light', cursive",
+              fontFamily: "'Cedarville Cursive', cursive",
               fontSize: "15px",
               fontWeight: 400,
             }}
@@ -402,7 +402,7 @@ function HeroComposition() {
           <div
             className="text-right text-sepia"
             style={{
-              fontFamily: "'Caveat', cursive",
+              fontFamily: "'Cedarville Cursive', cursive",
               fontSize: "13px",
             }}
           >

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MyFilmStrip — tiny memories, soft & slow",
+  title: "myfilmstrip — tiny memories, made with love",
   description:
-    "Turn your photos into vintage film strips. Classic B&W, warm vintage, or film camera aesthetics. Free, instant, no signup.",
+    "turn your favourite photos into vintage film strips. free, instantly, no signup.",
 };
 
 export default function RootLayout({
@@ -22,7 +22,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=DM+Serif+Display&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Bungee&family=Major+Mono+Display&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=DM+Serif+Display&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Caveat:wght@400;500;600&family=Shadows+Into+Light&display=swap"
           rel="stylesheet"
         />
       </head>

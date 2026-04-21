@@ -222,34 +222,34 @@ function HomeScreen({
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.15, duration: 0.6 }}
-        className="text-center max-w-lg relative z-10 flex flex-col items-center"
+        className="text-center relative z-10 flex flex-col items-center w-full max-w-md"
       >
-        <div className="font-mono font-light text-[10px] tracking-[4px] uppercase text-sepia mb-6">
-          · est. 2026 · toronto ·
+        {/* MADE IN TORONTO stamp */}
+        <div className="font-mono font-light text-[11px] tracking-[4px] uppercase text-ink/70 mb-3">
+          · made in toronto ·
         </div>
 
-        <h1 className="font-display text-6xl md:text-7xl leading-[0.95] mb-3">
+        {/* Hero title */}
+        <h1 className="font-display text-7xl md:text-[88px] leading-[0.95] mb-2 text-ink">
           myfilmstrip
         </h1>
 
-        <div className="flex items-center justify-center gap-3 my-4">
+        {/* Subheading with flanking lines */}
+        <div className="flex items-center justify-center gap-3 mb-8">
           <div className="w-10 h-px bg-sand" />
-          <span className="font-italic italic text-sepia text-lg">
+          <span className="font-italic italic text-sepia text-base">
             tiny memories, made with love!
           </span>
           <div className="w-10 h-px bg-sand" />
         </div>
 
-        {/* Polaroid stack hero */}
-        <div className="my-10">
-          <PolaroidStack />
+        {/* Hero: polaroid + film strip + note card */}
+        <div className="mb-10">
+          <HeroComposition />
         </div>
 
-        <p className="font-italic italic text-sepia text-base mb-8 max-w-sm mx-auto leading-relaxed">
-          turn your favourite photos into vintage film strips. free. instantly.
-        </p>
-
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        {/* CTAs */}
+        <div className="flex flex-col gap-3 w-full max-w-[360px] mb-4">
           <button onClick={onUpload} className="btn-ink group">
             <span>upload photos</span>
             <span className="ml-2 transition-transform group-hover:translate-x-0.5">↑</span>
@@ -260,7 +260,12 @@ function HomeScreen({
           </button>
         </div>
 
-        <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-faded mt-10">
+        {/* Tagline below buttons */}
+        <p className="font-italic italic text-sepia text-sm mb-10">
+          turn your favourite photos into film strips. free. instantly.
+        </p>
+
+        <div className="font-mono font-light text-[11px] tracking-[4px] uppercase text-faded">
           — up to 4 photos —
         </div>
       </motion.div>
@@ -268,18 +273,21 @@ function HomeScreen({
   );
 }
 
-// Polaroid stack — 2 photos + handwritten note card, layered & tilted
-// Whole stack lifts and tilts 3D on hover
-function PolaroidStack() {
+// Hero composition matching the Figma mockup:
+// Left: 1 polaroid (hero1), tilted slightly left
+// Right: vertical film strip with 3 frames (hero2, hero3, hero4), tilted slightly right
+// Center overlapping: handwritten note card
+// Whole composition lifts and tilts 3D on hover
+function HeroComposition() {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div
       className="relative"
       style={{
-        width: "280px",
-        height: "340px",
-        perspective: "1200px",
+        width: "360px",
+        height: "300px",
+        perspective: "1400px",
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -288,102 +296,117 @@ function PolaroidStack() {
         className="relative w-full h-full"
         style={{ transformStyle: "preserve-3d" }}
         animate={{
-          rotateX: isHovered ? -12 : 0,
-          rotateY: isHovered ? 8 : 0,
-          y: isHovered ? -12 : 0,
-          scale: isHovered ? 1.04 : 1,
+          rotateX: isHovered ? -10 : 0,
+          rotateY: isHovered ? 6 : 0,
+          y: isHovered ? -10 : 0,
+          scale: isHovered ? 1.03 : 1,
         }}
         transition={{ type: "spring", stiffness: 180, damping: 18 }}
       >
-        {/* BACK polaroid - hero1 */}
+        {/* LEFT: Single polaroid */}
         <motion.div
-          className="absolute top-0 left-4 bg-white p-2 pb-6 rounded-sm"
+          className="absolute bg-white p-2 pb-6 rounded-sm"
           style={{
-            width: "160px",
-            boxShadow: "0 4px 16px rgba(58,47,37,0.18)",
+            top: "30px",
+            left: "40px",
+            width: "135px",
+            boxShadow: "0 6px 18px rgba(58,47,37,0.2)",
           }}
           animate={{
-            rotate: isHovered ? -14 : -8,
-            x: isHovered ? -10 : 0,
+            rotate: isHovered ? -10 : -6,
+            x: isHovered ? -8 : 0,
             y: isHovered ? -4 : 0,
           }}
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         >
           <div
             className="w-full bg-ecru overflow-hidden"
-            style={{ aspectRatio: "1/1" }}
+            style={{ aspectRatio: "3/4" }}
           >
             <img
               src="/hero1.jpeg"
               alt=""
               className="w-full h-full object-cover"
-              style={{ filter: "sepia(0.25) saturate(0.9) contrast(0.95)" }}
+              style={{ filter: "saturate(0.95) contrast(1.02)" }}
             />
           </div>
         </motion.div>
 
-        {/* FRONT polaroid - hero2 */}
+        {/* RIGHT: Vertical film strip with 3 frames */}
         <motion.div
-          className="absolute top-8 right-0 bg-white p-2 pb-6 rounded-sm"
+          className="absolute rounded-sm"
           style={{
-            width: "160px",
-            boxShadow: "0 6px 20px rgba(58,47,37,0.22)",
+            top: "0",
+            right: "20px",
+            width: "140px",
+            background: "#1a1612",
+            padding: "10px 8px",
+            boxShadow: "0 8px 22px rgba(58,47,37,0.25)",
           }}
           animate={{
-            rotate: isHovered ? 10 : 6,
-            x: isHovered ? 12 : 0,
+            rotate: isHovered ? 10 : 5,
+            x: isHovered ? 10 : 0,
             y: isHovered ? -2 : 0,
           }}
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         >
-          <div
-            className="w-full bg-ecru overflow-hidden"
-            style={{ aspectRatio: "1/1" }}
-          >
-            <img
-              src="/hero2.jpeg"
-              alt=""
-              className="w-full h-full object-cover"
-              style={{ filter: "sepia(0.25) saturate(0.9) contrast(0.95)" }}
-            />
+          <div className="flex flex-col gap-1.5">
+            {[
+              "/hero2.jpeg",
+              "/hero3.jpeg",
+              "/hero4.jpeg",
+            ].map((src, i) => (
+              <div
+                key={i}
+                className="w-full bg-ink overflow-hidden rounded-[2px]"
+                style={{ aspectRatio: "4/3" }}
+              >
+                <img
+                  src={src}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ filter: "grayscale(1) contrast(1.1) brightness(0.95)" }}
+                />
+              </div>
+            ))}
           </div>
         </motion.div>
 
-        {/* NOTE CARD - top layer with handwritten message */}
+        {/* NOTE CARD - center overlapping */}
         <motion.div
           className="absolute p-4 rounded-sm"
           style={{
-            top: "120px",
-            left: "30px",
-            width: "220px",
+            bottom: "0",
+            left: "75px",
+            width: "200px",
             background: "#fdf6e5",
-            boxShadow: "0 8px 24px rgba(58,47,37,0.25)",
+            boxShadow: "0 8px 22px rgba(58,47,37,0.22)",
           }}
           animate={{
-            rotate: isHovered ? -4 : -2,
-            y: isHovered ? -8 : 0,
+            rotate: isHovered ? -3 : -1,
+            y: isHovered ? -6 : 0,
           }}
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         >
           <p
-            className="text-sepia leading-[1.4] mb-3"
+            className="text-ink/85 leading-[1.3] mb-2 text-left"
             style={{
               fontFamily: "'Caveat', 'Shadows Into Light', cursive",
-              fontSize: "17px",
+              fontSize: "15px",
               fontWeight: 400,
             }}
           >
-            welcome to my little film strip. my first vibe code project to make
-            digital photos more fun :) let&apos;s make some new mems together!
+            welcome to my little film strip. this is my first digital project to
+            make photos more fun :) let&apos;s make some mems together!
           </p>
           <div
-            className="text-right text-sepia/70"
+            className="text-right text-sepia"
             style={{
               fontFamily: "'Caveat', cursive",
               fontSize: "13px",
             }}
           >
-            april 21, 2026
+            love, naomi
           </div>
         </motion.div>
 
@@ -391,8 +414,8 @@ function PolaroidStack() {
         <motion.div
           className="absolute pointer-events-none"
           style={{
-            top: "112px",
-            left: "120px",
+            bottom: "152px",
+            left: "140px",
             width: "44px",
             height: "18px",
             background: "rgba(240, 220, 150, 0.6)",
@@ -400,8 +423,8 @@ function PolaroidStack() {
             zIndex: 10,
           }}
           animate={{
-            rotate: isHovered ? -18 : -12,
-            y: isHovered ? -10 : 0,
+            rotate: isHovered ? -14 : -10,
+            y: isHovered ? -8 : 0,
           }}
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         />

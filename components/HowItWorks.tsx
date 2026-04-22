@@ -8,7 +8,6 @@ export default function HowItWorks() {
   return (
     <section className="w-full pb-16 pt-12 md:pt-16">
       <div className="max-w-4xl mx-auto px-6">
-        {/* Scroll cue — gentle pulsing down arrow */}
         <ScrollCue />
 
         <div className="text-center mb-8 mt-12 md:mt-16">
@@ -60,20 +59,17 @@ export default function HowItWorks() {
   );
 }
 
-// ========== SCROLL CUE ==========
+// ========== SCROLL CUE (just arrow, no label) ==========
 
 function ScrollCue() {
   return (
     <motion.div
-      className="flex flex-col items-center gap-1"
-      animate={{ y: [0, 4, 0] }}
+      className="flex justify-center"
+      animate={{ y: [0, 6, 0] }}
       transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
     >
-      <div className="font-mono font-light text-[10px] tracking-[4px] uppercase text-sepia">
-        how it works
-      </div>
       <motion.div
-        className="text-sepia text-lg"
+        className="text-sepia text-xl"
         animate={{ opacity: [0.5, 1, 0.5] }}
         transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
       >
@@ -132,12 +128,7 @@ function Step({
 
 function StepUploadIllustration() {
   return (
-    <svg
-      viewBox="0 0 200 150"
-      className="w-full h-full"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg viewBox="0 0 200 150" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(40, 30) rotate(-8)">
         <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#d4a574" />
@@ -146,11 +137,7 @@ function StepUploadIllustration() {
       <g transform="translate(70, 45) rotate(4)">
         <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#e8a87c" />
-        <path
-          d="M 8 30 L 18 20 L 28 28 L 38 18 L 46 26 L 46 46 L 4 46 Z"
-          fill="#a86a4a"
-          opacity="0.5"
-        />
+        <path d="M 8 30 L 18 20 L 28 28 L 38 18 L 46 26 L 46 46 L 4 46 Z" fill="#a86a4a" opacity="0.5" />
       </g>
       <g transform="translate(100, 35) rotate(-3)">
         <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
@@ -164,13 +151,7 @@ function StepUploadIllustration() {
         <path d="M 10 36 Q 25 22 40 36" stroke="#8a7560" strokeWidth="1.5" fill="none" opacity="0.6" />
       </g>
       <g opacity="0.6">
-        <path
-          d="M 100 115 L 100 130 M 95 125 L 100 130 L 105 125"
-          stroke="#3a2f25"
-          strokeWidth="1.2"
-          fill="none"
-          strokeLinecap="round"
-        />
+        <path d="M 100 115 L 100 130 M 95 125 L 100 130 L 105 125" stroke="#3a2f25" strokeWidth="1.2" fill="none" strokeLinecap="round" />
       </g>
       <g fill="#c9b89a" opacity="0.7">
         <path d="M 30 70 L 31 74 L 35 75 L 31 76 L 30 80 L 29 76 L 25 75 L 29 74 Z" />
@@ -184,35 +165,24 @@ function StepUploadIllustration() {
 
 function StepStyleIllustration() {
   return (
-    <svg
-      viewBox="0 0 200 150"
-      className="w-full h-full"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg viewBox="0 0 200 150" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(20, 40)">
         <rect width="45" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="2" />
         <rect x="4" y="4" width="37" height="37" fill="#3a3a3a" />
         <rect x="4" y="4" width="37" height="37" fill="url(#bwGrad)" />
-        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">
-          B&amp;W
-        </text>
+        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">B&amp;W</text>
       </g>
       <g transform="translate(75, 25)">
         <rect width="50" height="68" fill="white" stroke="#3a2f25" strokeWidth="1.5" rx="2" />
         <rect x="4" y="4" width="42" height="42" fill="url(#warmGrad)" />
-        <text x="25" y="58" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">
-          WARM
-        </text>
+        <text x="25" y="58" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">WARM</text>
         <circle cx="46" cy="4" r="5" fill="#3a2f25" />
         <path d="M 43.5 4 L 45.5 6 L 48.5 2" stroke="#f5f1e8" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
       <g transform="translate(135, 40)">
         <rect width="45" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="2" />
         <rect x="4" y="4" width="37" height="37" fill="url(#filmGrad)" />
-        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">
-          FILM
-        </text>
+        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">FILM</text>
       </g>
       <g transform="translate(97, 100)">
         <path d="M 0 0 L 6 -8 L 12 0 Z" fill="#3a2f25" opacity="0.75" />
@@ -273,9 +243,7 @@ function StepDownloadIllustration() {
       </g>
       <g transform="translate(140, 95)">
         <rect x="-14" y="-5" width="28" height="10" fill="#fdf6e5" stroke="#c9b89a" strokeWidth="0.5" rx="1" />
-        <text x="0" y="2" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">
-          .PNG
-        </text>
+        <text x="0" y="2" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">.PNG</text>
       </g>
       <g fill="#d4a574" opacity="0.8">
         <path d="M 40 50 L 41 54 L 45 55 L 41 56 L 40 60 L 39 56 L 35 55 L 39 54 Z" />

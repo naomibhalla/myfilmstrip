@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -39,22 +39,48 @@ const ROTATIONS = [-2, 1.5, -1, 2.5];
 const DEFAULT_CROP: PhotoCrop = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 export default function Home() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreenState] = useState<Screen>("home");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [style, setStyle] = useState<FilmStyle>("warm-vintage");
   const [orientation, setOrientation] = useState<Orientation>("vertical");
-  const [borderColor, setBorderColor] = useState<BorderColor>("black"); // ← black default
+  const [borderColor, setBorderColor] = useState<BorderColor>("black");
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
+  // ========== BROWSER BACK BUTTON HANDLING ==========
+  // Use the History API so browser/iOS back goes to previous screen within app
+  // rather than leaving the site entirely.
+
+  // Push a history entry whenever we navigate to a non-home screen
+  function setScreen(next: Screen) {
+    if (next === screen) return;
+    // Push a new history state for anywhere except home (home is the natural root)
+    if (next !== "home" && typeof window !== "undefined") {
+      window.history.pushState({ screen: next }, "");
+    }
+    setScreenState(next);
+  }
+
+  // Listen for browser back (popstate) and sync internal screen state
+  useEffect(() => {
+    function handlePopState(e: PopStateEvent) {
+      // Determine appropriate fallback screen based on current
+      setScreenState((curr) => {
+        // If we're on result/editor/upload/camera, back should go home
+        // If we're already home, the browser will navigate away naturally
+        if (curr === "result") return "editor";
+        if (curr === "editor" || curr === "camera" || curr === "upload") return "home";
+        return curr;
+      });
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 350, tolerance: 8 },
-    }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 350, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -308,11 +334,7 @@ function HeroComposition() {
   return (
     <div
       className="relative"
-      style={{
-        width: "360px",
-        height: "300px",
-        perspective: "1400px",
-      }}
+      style={{ width: "360px", height: "300px", perspective: "1400px" }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -342,10 +364,7 @@ function HeroComposition() {
           }}
           transition={{ type: "spring", stiffness: 180, damping: 16 }}
         >
-          <div
-            className="w-full bg-ecru overflow-hidden"
-            style={{ aspectRatio: "3/4" }}
-          >
+          <div className="w-full bg-ecru overflow-hidden" style={{ aspectRatio: "3/4" }}>
             <img
               src="/hero1.jpeg"
               alt=""
@@ -418,10 +437,7 @@ function HeroComposition() {
           </p>
           <div
             className="text-right text-sepia"
-            style={{
-              fontFamily: "'Cedarville Cursive', cursive",
-              fontSize: "13px",
-            }}
+            style={{ fontFamily: "'Cedarville Cursive', cursive", fontSize: "13px" }}
           >
             love, naomi
           </div>
@@ -533,12 +549,10 @@ function EditorScreen({
       </div>
 
       <div className="tape paper-card rounded-sm p-5 md:p-6 mb-6">
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <div className="font-italic italic text-sepia text-sm">
-              your photos
-            </div>
-            <div className="font-display text-2xl">
+        <div className="flex justify-between items-end mb-4 gap-3">
+          <div className="min-w-0">
+            <div className="font-italic italic text-sepia text-sm">your photos</div>
+            <div className="font-display text-xl md:text-2xl">
               press & hold to reorder ({photos.length}/4)
             </div>
             <div className="font-italic italic text-faded text-xs mt-1">
@@ -548,7 +562,7 @@ function EditorScreen({
           {photos.length > 1 && (
             <button
               onClick={onShuffle}
-              className="font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40 inline-flex items-center gap-1.5"
+              className="shrink-0 font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40 inline-flex items-center gap-1.5"
             >
               <span>shuffle</span>
               <span>↻</span>
@@ -586,9 +600,7 @@ function EditorScreen({
                   onClick={() => fileInputRef.current?.click()}
                   className="aspect-[3/4] border-2 border-dashed border-sand/70 bg-ecru/40 hover:bg-ecru hover:border-sepia rounded-sm flex flex-col items-center justify-center gap-2 transition-all group"
                 >
-                  <div className="text-3xl text-sand group-hover:text-sepia transition-colors">
-                    +
-                  </div>
+                  <div className="text-3xl text-sand group-hover:text-sepia transition-colors">+</div>
                   <div className="font-mono font-light text-[9px] tracking-widest uppercase text-sepia">
                     add photo
                   </div>
@@ -605,69 +617,65 @@ function EditorScreen({
           style={{ transform: "rotate(-2deg)" }}
         />
         <div className="mb-4">
-          <div className="font-italic italic text-sepia text-sm">
-            film strip finish
-          </div>
+          <div className="font-italic italic text-sepia text-sm">film strip finish</div>
           <div className="font-display text-2xl">pick your vibe</div>
         </div>
         <StylePicker value={style} onChange={onStyleChange} />
       </div>
 
-      <div className="paper-card rounded-sm p-5 md:p-6 mb-6 grid grid-cols-2 gap-5">
+      {/* Orientation + Border — stack on mobile, side by side on desktop */}
+      <div className="paper-card rounded-sm p-5 md:p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-5">
         <div>
-          <div className="font-italic italic text-sepia text-xs mb-1">
-            orientation
-          </div>
+          <div className="font-italic italic text-sepia text-xs mb-1">orientation</div>
           <div className="font-display text-lg mb-3">strip layout</div>
           <div className="flex gap-2">
             <button
               onClick={() => onOrientationChange("vertical")}
-              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border ${
+              className={`flex-1 py-2.5 px-2 rounded-sm font-mono font-light text-[10px] tracking-[1.5px] uppercase transition-all border whitespace-nowrap ${
                 orientation === "vertical"
                   ? "bg-ink text-cream border-ink"
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              ↓ vertical
+              vertical
             </button>
             <button
               onClick={() => onOrientationChange("horizontal")}
-              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border ${
+              className={`flex-1 py-2.5 px-2 rounded-sm font-mono font-light text-[10px] tracking-[1.5px] uppercase transition-all border whitespace-nowrap ${
                 orientation === "horizontal"
                   ? "bg-ink text-cream border-ink"
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              → horizontal
+              horizontal
             </button>
           </div>
         </div>
 
         <div>
-          <div className="font-italic italic text-sepia text-xs mb-1">
-            border
-          </div>
+          <div className="font-italic italic text-sepia text-xs mb-1">border</div>
           <div className="font-display text-lg mb-3">frame color</div>
           <div className="flex gap-2">
-            <button
-              onClick={() => onBorderColorChange("white")}
-              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border-2 ${
-                borderColor === "white"
-                  ? "bg-cream text-ink border-ink"
-                  : "bg-transparent text-ink border-sand hover:border-ink"
-              }`}
-            >
-              white
-            </button>
+            {/* Black first (default) then white */}
             <button
               onClick={() => onBorderColorChange("black")}
-              className={`flex-1 py-2 rounded-sm font-mono font-light text-[10px] tracking-[2px] uppercase transition-all border-2 ${
+              className={`flex-1 py-2.5 px-2 rounded-sm font-mono font-light text-[10px] tracking-[1.5px] uppercase transition-all border-2 whitespace-nowrap ${
                 borderColor === "black"
                   ? "bg-ink text-cream border-ink"
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
               black
+            </button>
+            <button
+              onClick={() => onBorderColorChange("white")}
+              className={`flex-1 py-2.5 px-2 rounded-sm font-mono font-light text-[10px] tracking-[1.5px] uppercase transition-all border-2 whitespace-nowrap ${
+                borderColor === "white"
+                  ? "bg-cream text-ink border-ink"
+                  : "bg-transparent text-ink border-sand hover:border-ink"
+              }`}
+            >
+              white
             </button>
           </div>
         </div>
@@ -718,6 +726,7 @@ function ResultScreen({
       transition={{ duration: 0.5 }}
       className="min-h-screen w-full px-5 py-8 md:py-12 max-w-lg mx-auto"
     >
+      {/* No more 'complete' text */}
       <div className="flex justify-between items-start mb-8">
         <button
           onClick={onBack}
@@ -725,9 +734,6 @@ function ResultScreen({
         >
           ← edit
         </button>
-        <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-sepia">
-          complete ✓
-        </div>
       </div>
 
       <div className="text-center mb-8">

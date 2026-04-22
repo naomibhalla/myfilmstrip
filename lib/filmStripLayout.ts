@@ -190,10 +190,9 @@ async function generateHorizontalStrip(
 }
 
 // ========== COVER FIT WITH CROP ==========
-// Mirrors the editor's rendering behavior:
-// Image uses object-fit: cover at zoom=1 (fills frame, crops overflow).
-// Offset lets you pan in whichever direction has overflow.
-// Zoom > 1 crops in further, allowing more pan.
+// Mirrors CSS preview: image at cover-fit (fills frame at zoom 1, crops overflow).
+// offsetX/Y are in "% of frame in display space" — same units as CSS translate().
+// Canvas: compute source rect on original image that maps to the frame.
 
 async function applyStyleCoverFit(
   img: HTMLImageElement,
@@ -210,7 +209,7 @@ async function applyStyleCoverFit(
   const imgRatio = img.width / img.height;
   const frameRatio = w / h;
 
-  // Base "cover" source dimensions (at zoom=1, centered, fills frame)
+  // Base cover-fit source rect (at zoom=1, centered)
   let baseSw: number;
   let baseSh: number;
   if (imgRatio > frameRatio) {
@@ -221,25 +220,13 @@ async function applyStyleCoverFit(
     baseSh = img.width / frameRatio;
   }
 
-  // Apply zoom — shrink source rect (showing less image, zoomed in more)
+  // Zoom shrinks source rect (more crop = zoomed in further)
   const sw = baseSw / crop.zoom;
   const sh = baseSh / crop.zoom;
 
-  // Offset: crop.offsetX and offsetY are in % of the preview container.
-  // In the preview, a 100% offset moves the image by a full frame width.
-  // Here we convert that to actual pixel shift on the source image.
-  // The max meaningful offset equals how much of the image overflows the frame.
-  // At cover-fit zoom=1: if horizontal overflow = (imgRatio/frameRatio - 1),
-  //   max offsetX (in preview %) = (imgRatio/frameRatio - 1) * 50
-  // That corresponds to max pixel shift of (img.width - baseSw) / 2.
-
-  // The relationship: in the preview, translating by X% of the container equals
-  // shifting the image by X% of the frame width (in display space).
-  // Since the rendered image at cover is (baseSw scaled up to frame), 1% of
-  // frame width = (baseSw / 100) of the source image in pixels — but only
-  // when zoom=1. When zoomed, the rendered image is larger by factor `zoom`,
-  // so 1% of frame = (baseSw / 100 / zoom) source pixels.
-
+  // Offset conversion: in the CSS preview, offsetX is % of frame width in display space.
+  // The rendered image in the preview is `scale(zoom)` of cover-fit. So 1% of frame
+  // in display space = (baseSw / 100 / zoom) source pixels.
   const srcShiftPerPercentX = baseSw / 100 / crop.zoom;
   const srcShiftPerPercentY = baseSh / 100 / crop.zoom;
 
@@ -252,7 +239,7 @@ async function applyStyleCoverFit(
   let sx = imgCenterX - sw / 2 + offsetPxX;
   let sy = imgCenterY - sh / 2 + offsetPxY;
 
-  // Clamp so we don't read outside the image
+  // Clamp within image bounds so we don't sample outside
   sx = Math.max(0, Math.min(img.width - sw, sx));
   sy = Math.max(0, Math.min(img.height - sh, sy));
 

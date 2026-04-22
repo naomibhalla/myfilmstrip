@@ -2,11 +2,11 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 export interface PhotoCrop {
-  zoom: number; // 1.0 = fit fully inside frame (see whole image, letterboxed if needed), 3.0 = 3x zoomed in
-  offsetX: number; // -100 to 100 (% of image, where you can pan)
+  zoom: number;
+  offsetX: number;
   offsetY: number;
 }
 
@@ -23,50 +23,31 @@ interface Props {
   onEditClose: () => void;
 }
 
-// Given an image's natural size and the frame aspect ratio, return the
-// scale (relative to "cover-fit") at which the image fills the frame.
-// We use "cover at zoom=1.5" as our effective default so the user always has
-// room to pan at 1x. "zoom" in the UI is ADDITIONAL tightening beyond that.
-function computeRenderScale(
+// Compute how far the user can pan in each direction, expressed as % of frame.
+// At zoom=1 (cover-fit): overflow equals the amount the image extends past the frame.
+//   For a wide image (imgRatio > frameRatio), there's horizontal overflow equal to
+//   (imgRatio/frameRatio - 1) * 50% in each direction (half of total overflow per side).
+// At higher zoom: additional (zoom-1)*50% of overflow becomes pannable on both axes.
+function computePanExtent(
   imgW: number,
   imgH: number,
   frameRatio: number,
   zoom: number
 ) {
   const imgRatio = imgW / imgH;
-  // "cover" scale = how much to scale the image so it fully covers the frame
-  // But we start slightly zoomed out so panning is always possible at zoom=1
-  // scale applied in the preview so that the rendered image always >= frame size
-  // but user can see the edges when panned extreme
-
-  // Simpler approach: just use cover-fit at zoom=1 (image fills frame, touching
-  // whichever axis is tighter). Then let offsets pan within the "cropped off"
-  // direction only. At zoom > 1, more of the image gets cropped, allowing more pan.
-
-  // We compute a "display scale" — how much to multiply image dimensions so it fits.
-  // Cover: scale = max(frameW/imgW, frameH/imgH). We then multiply by zoom on top.
-
-  // In the CSS transform, the image starts at width:100%, height:100% (stretched to frame).
-  // So we use object-fit: cover behavior — then apply an additional scale via transform.
-
-  // Return the "max pan extent" as a percentage, based on how much image overflows the frame.
-  // At cover-fit zoom=1: if imgRatio > frameRatio, overflow is horizontal.
-  //   overflow pct = (imgW_scaled - frameW) / frameW * 100
-  //   where imgW_scaled = frameH * imgRatio, so overflow = (imgRatio/frameRatio - 1) * 100
-  // Multiply that by the zoom factor for additional overflow.
-
   let overflowX = 0;
   let overflowY = 0;
+
   if (imgRatio > frameRatio) {
-    // image wider than frame — horizontal overflow even at cover-zoom=1
-    overflowX = (imgRatio / frameRatio - 1) * 50; // ± half of overflow pct
+    // Wide image — at cover-fit, horizontal overflow. Each side has half the excess.
+    overflowX = (imgRatio / frameRatio - 1) * 50;
   } else if (imgRatio < frameRatio) {
     overflowY = (frameRatio / imgRatio - 1) * 50;
   }
 
-  // Additional overflow from user zoom
-  overflowX = overflowX * zoom + (zoom - 1) * 50;
-  overflowY = overflowY * zoom + (zoom - 1) * 50;
+  // Additional overflow from zooming in
+  overflowX += (zoom - 1) * 50;
+  overflowY += (zoom - 1) * 50;
 
   return { overflowX, overflowY };
 }
@@ -128,7 +109,7 @@ export default function SortablePhoto({
   );
 }
 
-// ========== THUMBNAIL (non-editing) ==========
+// ========== THUMBNAIL ==========
 
 function PhotoThumbnail({
   src,
@@ -146,16 +127,21 @@ function PhotoThumbnail({
   onEditToggle: () => void;
 }) {
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
-
-  // Calculate image transform: same math as editor preview
   const frameRatio = 3 / 4;
-  const { overflowX, overflowY } = imgSize
-    ? computeRenderScale(imgSize.w, imgSize.h, frameRatio, crop.zoom)
-    : { overflowX: 0, overflowY: 0 };
 
-  // User offset is clamped to available overflow
-  const clampedOX = Math.max(-overflowX, Math.min(overflowX, crop.offsetX));
-  const clampedOY = Math.max(-overflowY, Math.min(overflowY, crop.offsetY));
+  // Compute display scale — how much to scale the image so it always covers the frame.
+  // At zoom=1 with cover-fit: scale factor = max of (frameW/imgW, frameH/imgH) relative
+  // to each other. But easier in CSS: use transform scale relative to "object-fit cover"
+  // baseline. Since we use object-fit: cover, scale(1) = image already covers frame.
+  // For panning to work, we need the scaled image to overflow in the direction we want.
+
+  // Actual displayed scale (so cover-fit image fits, plus user zoom on top)
+  const displayScale = crop.zoom;
+
+  // Calculate translation. offsetX is stored as "% of image dimension in cover-fit space".
+  // In CSS transform with scale, translate is relative to the untransformed element size.
+  const tx = -crop.offsetX;
+  const ty = -crop.offsetY;
 
   return (
     <>
@@ -175,7 +161,7 @@ function PhotoThumbnail({
             alt={`photo ${index + 1}`}
             className="w-full h-full object-cover pointer-events-none"
             style={{
-              transform: `scale(${crop.zoom}) translate(${-clampedOX}%, ${-clampedOY}%)`,
+              transform: `scale(${displayScale}) translate(${tx}%, ${ty}%)`,
               transformOrigin: "center center",
             }}
             onLoad={(e) => {
@@ -193,7 +179,6 @@ function PhotoThumbnail({
         </div>
       </div>
 
-      {/* Edit button — top left */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -205,7 +190,6 @@ function PhotoThumbnail({
         ✎
       </button>
 
-      {/* Remove button — top right */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -247,10 +231,10 @@ function CropEditor({
 
   const frameRatio = 3 / 4;
   const { overflowX, overflowY } = imgSize
-    ? computeRenderScale(imgSize.w, imgSize.h, frameRatio, crop.zoom)
+    ? computePanExtent(imgSize.w, imgSize.h, frameRatio, crop.zoom)
     : { overflowX: 0, overflowY: 0 };
 
-  // Clamp offsets to available overflow
+  // Clamp offsets to what's actually pannable
   const clampedOX = Math.max(-overflowX, Math.min(overflowX, crop.offsetX));
   const clampedOY = Math.max(-overflowY, Math.min(overflowY, crop.offsetY));
 
@@ -272,10 +256,10 @@ function CropEditor({
     const dx = e.clientX - dragStart.current.startX;
     const dy = e.clientY - dragStart.current.startY;
 
+    // Convert pixel delta to offset% of frame. Drag right = image shifts right = offsetX decreases.
     const pctDx = (dx / rect.width) * 100;
     const pctDy = (dy / rect.height) * 100;
 
-    // Invert: dragging image right = more of LEFT becomes visible = offsetX decreases
     const newOffsetX = Math.max(
       -overflowX,
       Math.min(overflowX, dragStart.current.startOffsetX - pctDx)
@@ -300,12 +284,11 @@ function CropEditor({
 
   function handleZoomChange(e: React.ChangeEvent<HTMLInputElement>) {
     const newZoom = parseFloat(e.target.value);
-    // Recompute overflow at new zoom
     if (!imgSize) {
       onCropChange({ ...crop, zoom: newZoom });
       return;
     }
-    const { overflowX: newOX, overflowY: newOY } = computeRenderScale(
+    const { overflowX: newOX, overflowY: newOY } = computePanExtent(
       imgSize.w,
       imgSize.h,
       frameRatio,
@@ -327,11 +310,8 @@ function CropEditor({
   return (
     <div
       className="relative bg-white p-3 pb-5 rounded-sm"
-      style={{
-        boxShadow: "0 8px 32px rgba(58,47,37,0.25)",
-      }}
+      style={{ boxShadow: "0 8px 32px rgba(58,47,37,0.25)" }}
     >
-      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <div>
           <div className="font-italic italic text-sepia text-xs">
@@ -349,7 +329,6 @@ function CropEditor({
         </button>
       </div>
 
-      {/* Image with drag-to-reposition */}
       <div
         ref={containerRef}
         onPointerDown={canPan ? handlePointerDown : undefined}
@@ -381,7 +360,6 @@ function CropEditor({
           draggable={false}
         />
 
-        {/* Grid overlay */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
           <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
@@ -390,7 +368,6 @@ function CropEditor({
         </div>
       </div>
 
-      {/* Zoom slider */}
       <div className="mt-3 mb-2">
         <div className="flex justify-between items-center mb-1">
           <div className="font-mono font-light text-[9px] tracking-widest uppercase text-sepia">
@@ -412,7 +389,6 @@ function CropEditor({
         />
       </div>
 
-      {/* Done button */}
       <button
         onClick={onClose}
         className="w-full mt-2 py-2 bg-ink text-cream rounded-sm font-mono font-light text-[10px] tracking-[3px] uppercase hover:bg-sepia transition-colors"

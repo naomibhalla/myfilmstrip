@@ -40,14 +40,21 @@ export default function SortablePhoto({
       {/* Polaroid-style card */}
       <div
         {...listeners}
-        className="cursor-grab active:cursor-grabbing bg-white p-2 pb-8 sticker-shadow rounded-sm hover:scale-105 transition-transform duration-200"
-        style={{ boxShadow: "0 4px 16px rgba(58,47,37,0.18)" }}
+        className="cursor-grab active:cursor-grabbing bg-white p-2 pb-8 sticker-shadow rounded-sm hover:scale-105 transition-transform duration-200 select-none"
+        style={{
+          boxShadow: "0 4px 16px rgba(58,47,37,0.18)",
+          // CRITICAL for mobile: prevents browser from scrolling/zooming
+          // when the user presses-and-holds on the photo to drag it.
+          touchAction: "none",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+        }}
       >
         <div className="aspect-[3/4] overflow-hidden bg-ecru relative">
           <img
             src={src}
             alt={`photo ${index + 1}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover pointer-events-none"
             draggable={false}
           />
           {/* Tiny frame number */}

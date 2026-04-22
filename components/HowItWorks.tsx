@@ -6,17 +6,10 @@ import { motion } from "framer-motion";
 
 export default function HowItWorks() {
   return (
-    <section className="w-full pb-12 pt-16 md:pt-24">
+    <section className="w-full pb-16 pt-20 md:pt-28">
       <div className="max-w-4xl mx-auto px-6">
-        <ScrollCue />
-      </div>
-
-      {/* Full-bleed torn paper */}
-      <TornPaperDivider />
-
-      <div className="max-w-4xl mx-auto px-6 mt-8">
-        <div className="text-center mb-6">
-          <div className="font-italic italic text-sepia text-sm mb-1">
+        <div className="text-center mb-8">
+          <div className="font-italic italic text-sepia text-sm mb-2">
             three little steps
           </div>
           <h2 className="font-display text-3xl md:text-4xl text-ink leading-tight">
@@ -54,131 +47,13 @@ export default function HowItWorks() {
           </Step>
         </div>
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-8">
           <div className="font-italic italic text-sepia text-xs">
             ready when you are ✿
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-// ========== SCROLL CUE ==========
-
-function ScrollCue() {
-  return (
-    <motion.div
-      className="flex flex-col items-center gap-1 pb-4"
-      animate={{ y: [0, 4, 0] }}
-      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-    >
-      <div className="font-mono font-light text-[10px] tracking-[4px] uppercase text-sepia">
-        how it works
-      </div>
-      <motion.div
-        className="text-sepia text-lg"
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-      >
-        ↓
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ========== TORN PAPER DIVIDER (full-bleed, subtle wavy rip) ==========
-// Creates a believable "two paper layers" effect:
-// - Top layer (above the rip): lighter cream, slight drop shadow at the torn edge
-// - Bottom layer (below the rip): the page background shows through, or we stack colors
-// - The rip itself is a gentle, wavy line — NOT dramatic zigzags
-
-function TornPaperDivider() {
-  // Use a smooth curve (not zigzag), high segment count for fine detail
-  const width = 2000;
-  const height = 70;
-  const segments = 40; // fewer segments but smoothed — creates gentle waves
-
-  // Seeded random for consistent edge
-  let seed = 137;
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-
-  // Generate control points along the rip — gentle, wavy variation
-  // The rip sits roughly at the vertical midpoint, with small (~6-10px) deviations
-  const midY = height / 2;
-  const amplitude = 8;
-  const points: { x: number; y: number }[] = [];
-  for (let i = 0; i <= segments; i++) {
-    const x = (i / segments) * width;
-    // Gentle wave with small random jitter
-    const baseWave = Math.sin((i / segments) * Math.PI * 3.2) * 3;
-    const jitter = (rand() - 0.5) * amplitude;
-    const y = midY + baseWave + jitter;
-    points.push({ x, y });
-  }
-
-  // Build smooth path using quadratic curves between midpoints
-  let path = `M 0 ${height} L 0 ${points[0].y.toFixed(1)} `;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p = points[i];
-    const next = points[i + 1];
-    const midX = (p.x + next.x) / 2;
-    const midYp = (p.y + next.y) / 2;
-    path += `Q ${p.x.toFixed(1)} ${p.y.toFixed(1)}, ${midX.toFixed(1)} ${midYp.toFixed(1)} `;
-  }
-  const last = points[points.length - 1];
-  path += `L ${last.x.toFixed(1)} ${last.y.toFixed(1)} L ${width} ${height} Z`;
-
-  return (
-    <div
-      className="relative w-full overflow-hidden"
-      aria-hidden="true"
-      style={{
-        marginLeft: 0,
-        marginRight: 0,
-      }}
-    >
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        className="w-full block"
-        style={{ height: "70px", display: "block" }}
-      >
-        <defs>
-          {/* Soft shadow filter beneath the torn edge */}
-          <filter id="ripShadow" x="-5%" y="-5%" width="110%" height="200%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
-            <feOffset dx="0" dy="2" result="offsetblur" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.35" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Top paper layer — slightly lighter cream, cut off by the rip */}
-        <path
-          d={path}
-          fill="#faf5ea"
-          filter="url(#ripShadow)"
-        />
-
-        {/* Thin inner edge highlight on the rip for paper thickness */}
-        <path
-          d={path.replace(/Z$/, "")}
-          fill="none"
-          stroke="#ebe3d3"
-          strokeWidth="1"
-          opacity="0.8"
-        />
-      </svg>
-    </div>
   );
 }
 

@@ -7,6 +7,7 @@ import {
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
+  MouseSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -46,9 +47,17 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
+  // Sensors tuned for press-hold-drag on mobile
+  // - MouseSensor for desktop (distance threshold)
+  // - TouchSensor with 350ms delay + small tolerance = press-and-hold activation
+  //   (users won't accidentally drag when trying to scroll)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 350, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -257,13 +266,11 @@ function HomeScreen({
         </div>
 
         <div className="flex flex-col gap-3 w-full max-w-[360px] mb-4">
-          <button onClick={onUpload} className="btn-ink group">
-            <span>upload photos</span>
-            <span className="ml-2 transition-transform group-hover:translate-x-0.5">↑</span>
+          <button onClick={onUpload} className="btn-ink">
+            upload photos
           </button>
-          <button onClick={onCamera} className="btn-outline group">
-            <span>use camera</span>
-            <span className="ml-2 transition-transform group-hover:translate-x-0.5">◉</span>
+          <button onClick={onCamera} className="btn-outline">
+            use camera
           </button>
         </div>
 
@@ -491,7 +498,7 @@ function EditorScreen({
           onClick={onBack}
           className="font-mono font-light text-xs tracking-widest text-sepia hover:text-ink transition-colors"
         >
-          ← back
+          back
         </button>
         <div className="text-right">
           <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-sepia">
@@ -503,7 +510,6 @@ function EditorScreen({
         </div>
       </div>
 
-      {/* Photos */}
       <div className="tape paper-card rounded-sm p-5 md:p-6 mb-6">
         <div className="flex justify-between items-end mb-4">
           <div>
@@ -511,16 +517,15 @@ function EditorScreen({
               your photos
             </div>
             <div className="font-display text-2xl">
-              drag to reorder ({photos.length}/4)
+              press & hold to reorder ({photos.length}/4)
             </div>
           </div>
           {photos.length > 1 && (
             <button
               onClick={onShuffle}
-              className="font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40 inline-flex items-center gap-1.5"
+              className="font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40"
             >
-              <span>shuffle</span>
-              <span>↻</span>
+              shuffle
             </button>
           )}
         </div>
@@ -563,7 +568,6 @@ function EditorScreen({
         </DndContext>
       </div>
 
-      {/* Style */}
       <div className="paper-card rounded-sm p-5 md:p-6 mb-6 relative">
         <div
           className="absolute -top-2 left-6 w-20 h-5 bg-rose/60 border border-rose/30"
@@ -578,9 +582,7 @@ function EditorScreen({
         <StylePicker value={style} onChange={onStyleChange} />
       </div>
 
-      {/* Orientation & Border toggles */}
       <div className="paper-card rounded-sm p-5 md:p-6 mb-6 grid grid-cols-2 gap-5">
-        {/* Orientation */}
         <div>
           <div className="font-italic italic text-sepia text-xs mb-1">
             orientation
@@ -595,7 +597,7 @@ function EditorScreen({
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              ↓ vertical
+              vertical
             </button>
             <button
               onClick={() => onOrientationChange("horizontal")}
@@ -605,12 +607,11 @@ function EditorScreen({
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              → horizontal
+              horizontal
             </button>
           </div>
         </div>
 
-        {/* Border */}
         <div>
           <div className="font-italic italic text-sepia text-xs mb-1">
             border
@@ -646,16 +647,13 @@ function EditorScreen({
         disabled={photos.length === 0}
         whileHover={{ scale: photos.length > 0 ? 1.02 : 1 }}
         whileTap={{ scale: photos.length > 0 ? 0.98 : 1 }}
-        className={`w-full py-5 rounded-sm font-mono font-light text-sm tracking-[4px] uppercase transition-all inline-flex items-center justify-center gap-2 ${
+        className={`w-full py-5 rounded-sm font-mono font-light text-sm tracking-[4px] uppercase transition-all ${
           photos.length === 0
             ? "bg-sand/40 text-faded cursor-not-allowed"
             : "bg-ink text-cream hover:bg-tomato sticker-shadow"
         }`}
       >
-        <span>
-          {photos.length === 0 ? "add photos to continue" : "develop my strip"}
-        </span>
-        {photos.length > 0 && <span>✿</span>}
+        {photos.length === 0 ? "add photos to continue" : "develop my strip"}
       </motion.button>
 
       <div className="text-center font-italic italic text-faded text-xs mt-4">
@@ -691,10 +689,10 @@ function ResultScreen({
           onClick={onBack}
           className="font-mono font-light text-xs tracking-widest text-sepia hover:text-ink"
         >
-          ← edit
+          edit
         </button>
         <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-sepia">
-          complete ✓
+          complete
         </div>
       </div>
 
@@ -720,19 +718,11 @@ function ResultScreen({
       </motion.div>
 
       <div className="flex flex-col gap-3">
-        <button
-          onClick={onDownload}
-          className="btn-ink w-full inline-flex items-center justify-center gap-2"
-        >
-          <span>download png</span>
-          <span>↓</span>
+        <button onClick={onDownload} className="btn-ink w-full">
+          download png
         </button>
-        <button
-          onClick={onStartOver}
-          className="btn-outline w-full inline-flex items-center justify-center gap-2"
-        >
-          <span>start over</span>
-          <span>↻</span>
+        <button onClick={onStartOver} className="btn-outline w-full">
+          start over
         </button>
       </div>
 

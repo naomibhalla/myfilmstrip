@@ -1,5 +1,5 @@
 // Composites processed images into a realistic film strip layout.
-// Supports vertical or horizontal orientation, and black or white outer border.
+// Supports vertical or horizontal orientation, and black or ivory film strip color.
 
 import { applyStyle, FilmStyle, loadImage } from "./imageProcessing";
 
@@ -15,75 +15,85 @@ export interface StripOptions {
   frameHeight?: number;
 }
 
+// Color palette for the two film strip variants
+function filmColors(variant: BorderColor) {
+  if (variant === "white") {
+    return {
+      filmBase: "#f0e6d2", // warm ivory
+      innerBezel: "#e0d4be", // slightly darker ivory for frame bezel
+      perforationFill: "#8a7560", // muted brown for holes (visible against ivory)
+      labelColor: "rgba(90, 70, 50, 0.55)",
+    };
+  }
+  return {
+    filmBase: "#1a1612", // near-black film
+    innerBezel: "#2a2420",
+    perforationFill: "#f5f1e8", // cream holes (visible against black)
+    labelColor: "rgba(245, 241, 232, 0.4)",
+  };
+}
+
 export async function generateFilmStrip(
   opts: StripOptions
 ): Promise<HTMLCanvasElement> {
   const orientation = opts.orientation ?? "vertical";
-  const borderColor = opts.borderColor ?? "white";
+  const borderColor = opts.borderColor ?? "black";
 
   return orientation === "vertical"
     ? generateVerticalStrip(opts, borderColor)
     : generateHorizontalStrip(opts, borderColor);
 }
 
-// ========== VERTICAL STRIP (original — frames stacked top to bottom) ==========
+// ========== VERTICAL STRIP ==========
 
 async function generateVerticalStrip(
   opts: StripOptions,
-  borderColor: BorderColor
+  variant: BorderColor
 ): Promise<HTMLCanvasElement> {
   const frameWidth = opts.frameWidth ?? 600;
   const frameHeight = opts.frameHeight ?? 450;
 
-  const sideMargin = 80;
-  const topBottomMargin = 50;
-  const gap = 14;
+  // Slimmer film strip — less black padding around photos
+  const sideMargin = 50; // space on left/right for perforations (was 80)
+  const topBottomMargin = 26; // top/bottom padding (was 50)
+  const gap = 10; // gap between frames (was 14)
   const cornerRadius = 4;
-  const outerBorder = 24; // new: white/black border around the whole strip
 
-  const innerStripWidth = frameWidth + sideMargin * 2;
-  const innerStripHeight =
+  const colors = filmColors(variant);
+
+  const stripWidth = frameWidth + sideMargin * 2;
+  const stripHeight =
     opts.imageSrcs.length * frameHeight +
     (opts.imageSrcs.length - 1) * gap +
     topBottomMargin * 2;
 
-  const canvasWidth = innerStripWidth + outerBorder * 2;
-  const canvasHeight = innerStripHeight + outerBorder * 2;
-
   const canvas = document.createElement("canvas");
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  canvas.width = stripWidth;
+  canvas.height = stripHeight;
   const ctx = canvas.getContext("2d")!;
 
-  // Outer border background
-  ctx.fillStyle = borderColor === "white" ? "#fdfaf2" : "#0d0b09";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  // Film base color
+  ctx.fillStyle = colors.filmBase;
+  ctx.fillRect(0, 0, stripWidth, stripHeight);
 
-  // Inner film base (offset by outerBorder)
-  const offX = outerBorder;
-  const offY = outerBorder;
-  ctx.fillStyle = "#1a1612";
-  ctx.fillRect(offX, offY, innerStripWidth, innerStripHeight);
-
-  // Subtle film base texture
-  const noiseImg = ctx.getImageData(offX, offY, innerStripWidth, innerStripHeight);
+  // Subtle film base texture (works for both colors)
+  const noiseImg = ctx.getImageData(0, 0, stripWidth, stripHeight);
   const nd = noiseImg.data;
+  const noiseStrength = variant === "white" ? 5 : 8;
   for (let i = 0; i < nd.length; i += 4) {
-    const n = (Math.random() - 0.5) * 8;
+    const n = (Math.random() - 0.5) * noiseStrength;
     nd[i] = Math.max(0, Math.min(255, nd[i] + n));
     nd[i + 1] = Math.max(0, Math.min(255, nd[i + 1] + n));
     nd[i + 2] = Math.max(0, Math.min(255, nd[i + 2] + n));
   }
-  ctx.putImageData(noiseImg, offX, offY);
+  ctx.putImageData(noiseImg, 0, 0);
 
-  // Load + process all images
   const loaded = await Promise.all(opts.imageSrcs.map((s) => loadImage(s)));
 
-  // Draw each frame
   for (let i = 0; i < loaded.length; i++) {
     const img = loaded[i];
-    const y = offY + topBottomMargin + i * (frameHeight + gap);
-    const x = offX + sideMargin;
+    const y = topBottomMargin + i * (frameHeight + gap);
+    const x = sideMargin;
 
     const processed = await applyStyleCoverFit(
       img,
@@ -92,7 +102,8 @@ async function generateVerticalStrip(
       frameHeight
     );
 
-    ctx.fillStyle = "#2a2420";
+    // Thin inner bezel around each photo
+    ctx.fillStyle = colors.innerBezel;
     ctx.fillRect(x - 2, y - 2, frameWidth + 4, frameHeight + 4);
 
     ctx.save();
@@ -102,72 +113,59 @@ async function generateVerticalStrip(
     ctx.restore();
   }
 
-  // Perforations (inside the inner film, not on the outer border)
-  drawVerticalPerforations(ctx, offX, offY, innerStripWidth, innerStripHeight, sideMargin);
-
-  // Film labels
-  drawVerticalFilmLabels(ctx, offX, offY, innerStripWidth, innerStripHeight, opts.style);
+  drawVerticalPerforations(ctx, stripWidth, stripHeight, sideMargin, colors.perforationFill);
+  drawVerticalFilmLabels(ctx, stripWidth, stripHeight, opts.style, colors.labelColor);
 
   return canvas;
 }
 
-// ========== HORIZONTAL STRIP (new — frames side by side) ==========
+// ========== HORIZONTAL STRIP ==========
 
 async function generateHorizontalStrip(
   opts: StripOptions,
-  borderColor: BorderColor
+  variant: BorderColor
 ): Promise<HTMLCanvasElement> {
   const frameWidth = opts.frameWidth ?? 450;
   const frameHeight = opts.frameHeight ?? 600;
 
-  const topBottomMargin = 80; // space for perforations (top + bottom)
-  const leftRightMargin = 50;
-  const gap = 14;
+  const topBottomMargin = 50;
+  const leftRightMargin = 26;
+  const gap = 10;
   const cornerRadius = 4;
-  const outerBorder = 24;
 
-  const innerStripHeight = frameHeight + topBottomMargin * 2;
-  const innerStripWidth =
+  const colors = filmColors(variant);
+
+  const stripHeight = frameHeight + topBottomMargin * 2;
+  const stripWidth =
     opts.imageSrcs.length * frameWidth +
     (opts.imageSrcs.length - 1) * gap +
     leftRightMargin * 2;
 
-  const canvasWidth = innerStripWidth + outerBorder * 2;
-  const canvasHeight = innerStripHeight + outerBorder * 2;
-
   const canvas = document.createElement("canvas");
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  canvas.width = stripWidth;
+  canvas.height = stripHeight;
   const ctx = canvas.getContext("2d")!;
 
-  // Outer border
-  ctx.fillStyle = borderColor === "white" ? "#fdfaf2" : "#0d0b09";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.fillStyle = colors.filmBase;
+  ctx.fillRect(0, 0, stripWidth, stripHeight);
 
-  // Inner film base
-  const offX = outerBorder;
-  const offY = outerBorder;
-  ctx.fillStyle = "#1a1612";
-  ctx.fillRect(offX, offY, innerStripWidth, innerStripHeight);
-
-  // Film base texture
-  const noiseImg = ctx.getImageData(offX, offY, innerStripWidth, innerStripHeight);
+  const noiseImg = ctx.getImageData(0, 0, stripWidth, stripHeight);
   const nd = noiseImg.data;
+  const noiseStrength = variant === "white" ? 5 : 8;
   for (let i = 0; i < nd.length; i += 4) {
-    const n = (Math.random() - 0.5) * 8;
+    const n = (Math.random() - 0.5) * noiseStrength;
     nd[i] = Math.max(0, Math.min(255, nd[i] + n));
     nd[i + 1] = Math.max(0, Math.min(255, nd[i + 1] + n));
     nd[i + 2] = Math.max(0, Math.min(255, nd[i + 2] + n));
   }
-  ctx.putImageData(noiseImg, offX, offY);
+  ctx.putImageData(noiseImg, 0, 0);
 
   const loaded = await Promise.all(opts.imageSrcs.map((s) => loadImage(s)));
 
-  // Draw each frame horizontally
   for (let i = 0; i < loaded.length; i++) {
     const img = loaded[i];
-    const x = offX + leftRightMargin + i * (frameWidth + gap);
-    const y = offY + topBottomMargin;
+    const x = leftRightMargin + i * (frameWidth + gap);
+    const y = topBottomMargin;
 
     const processed = await applyStyleCoverFit(
       img,
@@ -176,7 +174,7 @@ async function generateHorizontalStrip(
       frameHeight
     );
 
-    ctx.fillStyle = "#2a2420";
+    ctx.fillStyle = colors.innerBezel;
     ctx.fillRect(x - 2, y - 2, frameWidth + 4, frameHeight + 4);
 
     ctx.save();
@@ -186,18 +184,8 @@ async function generateHorizontalStrip(
     ctx.restore();
   }
 
-  // Perforations on top and bottom
-  drawHorizontalPerforations(
-    ctx,
-    offX,
-    offY,
-    innerStripWidth,
-    innerStripHeight,
-    topBottomMargin
-  );
-
-  // Film labels
-  drawHorizontalFilmLabels(ctx, offX, offY, innerStripWidth, innerStripHeight, opts.style);
+  drawHorizontalPerforations(ctx, stripWidth, stripHeight, topBottomMargin, colors.perforationFill);
+  drawHorizontalFilmLabels(ctx, stripWidth, stripHeight, opts.style, colors.labelColor);
 
   return canvas;
 }
@@ -262,69 +250,66 @@ function roundedRectPath(
 
 function drawVerticalPerforations(
   ctx: CanvasRenderingContext2D,
-  offX: number,
-  offY: number,
   stripW: number,
   stripH: number,
-  sideMargin: number
+  sideMargin: number,
+  fillColor: string
 ) {
-  const holeW = 28;
-  const holeH = 18;
-  const holeSpacing = 32;
-  const leftCenterX = offX + sideMargin / 2;
-  const rightCenterX = offX + stripW - sideMargin / 2;
+  const holeW = 22; // slightly smaller for slimmer feel
+  const holeH = 14;
+  const holeSpacing = 26;
+  const leftCenterX = sideMargin / 2;
+  const rightCenterX = stripW - sideMargin / 2;
 
   const totalHoles = Math.floor(stripH / holeSpacing);
-  const offsetY = offY + (stripH - (totalHoles - 1) * holeSpacing) / 2;
+  const offsetY = (stripH - (totalHoles - 1) * holeSpacing) / 2;
 
-  ctx.fillStyle = "#f5f1e8";
+  ctx.fillStyle = fillColor;
   for (let i = 0; i < totalHoles; i++) {
     const cy = offsetY + i * holeSpacing;
-    roundedRectPath(ctx, leftCenterX - holeW / 2, cy - holeH / 2, holeW, holeH, 3);
+    roundedRectPath(ctx, leftCenterX - holeW / 2, cy - holeH / 2, holeW, holeH, 2);
     ctx.fill();
-    roundedRectPath(ctx, rightCenterX - holeW / 2, cy - holeH / 2, holeW, holeH, 3);
+    roundedRectPath(ctx, rightCenterX - holeW / 2, cy - holeH / 2, holeW, holeH, 2);
     ctx.fill();
   }
 }
 
 function drawHorizontalPerforations(
   ctx: CanvasRenderingContext2D,
-  offX: number,
-  offY: number,
   stripW: number,
   stripH: number,
-  topBottomMargin: number
+  topBottomMargin: number,
+  fillColor: string
 ) {
-  const holeW = 18;
-  const holeH = 28;
-  const holeSpacing = 32;
-  const topCenterY = offY + topBottomMargin / 2;
-  const bottomCenterY = offY + stripH - topBottomMargin / 2;
+  const holeW = 14;
+  const holeH = 22;
+  const holeSpacing = 26;
+  const topCenterY = topBottomMargin / 2;
+  const bottomCenterY = stripH - topBottomMargin / 2;
 
   const totalHoles = Math.floor(stripW / holeSpacing);
-  const offsetX = offX + (stripW - (totalHoles - 1) * holeSpacing) / 2;
+  const offsetX = (stripW - (totalHoles - 1) * holeSpacing) / 2;
 
-  ctx.fillStyle = "#f5f1e8";
+  ctx.fillStyle = fillColor;
   for (let i = 0; i < totalHoles; i++) {
     const cx = offsetX + i * holeSpacing;
-    roundedRectPath(ctx, cx - holeW / 2, topCenterY - holeH / 2, holeW, holeH, 3);
+    roundedRectPath(ctx, cx - holeW / 2, topCenterY - holeH / 2, holeW, holeH, 2);
     ctx.fill();
-    roundedRectPath(ctx, cx - holeW / 2, bottomCenterY - holeH / 2, holeW, holeH, 3);
+    roundedRectPath(ctx, cx - holeW / 2, bottomCenterY - holeH / 2, holeW, holeH, 2);
     ctx.fill();
   }
 }
 
 function drawVerticalFilmLabels(
   ctx: CanvasRenderingContext2D,
-  offX: number,
-  offY: number,
   stripW: number,
   stripH: number,
-  style: FilmStyle
+  style: FilmStyle,
+  labelColor: string
 ) {
   ctx.save();
-  ctx.fillStyle = "rgba(245, 241, 232, 0.4)";
-  ctx.font = "bold 10px 'Courier New', monospace";
+  ctx.fillStyle = labelColor;
+  ctx.font = "bold 9px 'Courier New', monospace";
 
   const labels: Record<FilmStyle, string> = {
     "classic-bw": "ILFORD HP5 400",
@@ -333,13 +318,13 @@ function drawVerticalFilmLabels(
   };
 
   ctx.save();
-  ctx.translate(offX + 12, offY + 30);
+  ctx.translate(8, 22);
   ctx.rotate(-Math.PI / 2);
   ctx.fillText(labels[style], -30, 0);
   ctx.restore();
 
   ctx.save();
-  ctx.translate(offX + stripW - 12, offY + stripH - 30);
+  ctx.translate(stripW - 8, stripH - 22);
   ctx.rotate(-Math.PI / 2);
   ctx.fillText("• MYFILMSTRIP •", -80, 0);
   ctx.restore();
@@ -349,15 +334,14 @@ function drawVerticalFilmLabels(
 
 function drawHorizontalFilmLabels(
   ctx: CanvasRenderingContext2D,
-  offX: number,
-  offY: number,
   stripW: number,
   stripH: number,
-  style: FilmStyle
+  style: FilmStyle,
+  labelColor: string
 ) {
   ctx.save();
-  ctx.fillStyle = "rgba(245, 241, 232, 0.4)";
-  ctx.font = "bold 10px 'Courier New', monospace";
+  ctx.fillStyle = labelColor;
+  ctx.font = "bold 9px 'Courier New', monospace";
 
   const labels: Record<FilmStyle, string> = {
     "classic-bw": "ILFORD HP5 400",
@@ -365,10 +349,8 @@ function drawHorizontalFilmLabels(
     "film-camera": "CINESTILL 800T",
   };
 
-  // Top-left film label
-  ctx.fillText(labels[style], offX + 12, offY + 18);
-  // Bottom-right
-  ctx.fillText("• MYFILMSTRIP •", offX + stripW - 100, offY + stripH - 8);
+  ctx.fillText(labels[style], 10, 14);
+  ctx.fillText("• MYFILMSTRIP •", stripW - 100, stripH - 6);
 
   ctx.restore();
 }

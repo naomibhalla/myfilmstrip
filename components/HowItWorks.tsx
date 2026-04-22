@@ -6,11 +6,15 @@ import { motion } from "framer-motion";
 
 export default function HowItWorks() {
   return (
-    <section className="w-full max-w-4xl mx-auto px-6 pb-12">
-      <ScrollCue />
+    <section className="w-full pb-12 pt-16 md:pt-24">
+      <div className="max-w-4xl mx-auto px-6">
+        <ScrollCue />
+      </div>
+
+      {/* Full-bleed torn paper */}
       <TornPaperDivider />
 
-      <div className="mt-8">
+      <div className="max-w-4xl mx-auto px-6 mt-8">
         <div className="text-center mb-6">
           <div className="font-italic italic text-sepia text-sm mb-1">
             three little steps
@@ -65,7 +69,7 @@ export default function HowItWorks() {
 function ScrollCue() {
   return (
     <motion.div
-      className="flex flex-col items-center gap-1 pt-4 pb-2"
+      className="flex flex-col items-center gap-1 pb-4"
       animate={{ y: [0, 4, 0] }}
       transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
     >
@@ -83,41 +87,95 @@ function ScrollCue() {
   );
 }
 
-// ========== TORN PAPER DIVIDER ==========
+// ========== TORN PAPER DIVIDER (full-bleed, subtle wavy rip) ==========
+// Creates a believable "two paper layers" effect:
+// - Top layer (above the rip): lighter cream, slight drop shadow at the torn edge
+// - Bottom layer (below the rip): the page background shows through, or we stack colors
+// - The rip itself is a gentle, wavy line — NOT dramatic zigzags
 
 function TornPaperDivider() {
-  const width = 1200;
-  const height = 20;
-  const segments = 80;
+  // Use a smooth curve (not zigzag), high segment count for fine detail
+  const width = 2000;
+  const height = 70;
+  const segments = 40; // fewer segments but smoothed — creates gentle waves
 
-  let seed = 42;
+  // Seeded random for consistent edge
+  let seed = 137;
   const rand = () => {
     seed = (seed * 9301 + 49297) % 233280;
     return seed / 233280;
   };
 
-  let path = `M 0 ${height} `;
+  // Generate control points along the rip — gentle, wavy variation
+  // The rip sits roughly at the vertical midpoint, with small (~6-10px) deviations
+  const midY = height / 2;
+  const amplitude = 8;
+  const points: { x: number; y: number }[] = [];
   for (let i = 0; i <= segments; i++) {
     const x = (i / segments) * width;
-    const y = rand() * height * 0.7 + 2;
-    path += `L ${x.toFixed(1)} ${y.toFixed(1)} `;
+    // Gentle wave with small random jitter
+    const baseWave = Math.sin((i / segments) * Math.PI * 3.2) * 3;
+    const jitter = (rand() - 0.5) * amplitude;
+    const y = midY + baseWave + jitter;
+    points.push({ x, y });
   }
-  path += `L ${width} ${height} Z`;
+
+  // Build smooth path using quadratic curves between midpoints
+  let path = `M 0 ${height} L 0 ${points[0].y.toFixed(1)} `;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p = points[i];
+    const next = points[i + 1];
+    const midX = (p.x + next.x) / 2;
+    const midYp = (p.y + next.y) / 2;
+    path += `Q ${p.x.toFixed(1)} ${p.y.toFixed(1)}, ${midX.toFixed(1)} ${midYp.toFixed(1)} `;
+  }
+  const last = points[points.length - 1];
+  path += `L ${last.x.toFixed(1)} ${last.y.toFixed(1)} L ${width} ${height} Z`;
 
   return (
-    <div className="relative w-full my-2" aria-hidden="true">
+    <div
+      className="relative w-full overflow-hidden"
+      aria-hidden="true"
+      style={{
+        marginLeft: 0,
+        marginRight: 0,
+      }}
+    >
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
-        className="w-full h-4 block"
+        className="w-full block"
+        style={{ height: "70px", display: "block" }}
       >
-        <path d={path} fill="#c9b89a" opacity="0.45" />
+        <defs>
+          {/* Soft shadow filter beneath the torn edge */}
+          <filter id="ripShadow" x="-5%" y="-5%" width="110%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+            <feOffset dx="0" dy="2" result="offsetblur" />
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.35" />
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Top paper layer — slightly lighter cream, cut off by the rip */}
         <path
           d={path}
+          fill="#faf5ea"
+          filter="url(#ripShadow)"
+        />
+
+        {/* Thin inner edge highlight on the rip for paper thickness */}
+        <path
+          d={path.replace(/Z$/, "")}
           fill="none"
-          stroke="#8a7560"
-          strokeWidth="0.5"
-          opacity="0.3"
+          stroke="#ebe3d3"
+          strokeWidth="1"
+          opacity="0.8"
         />
       </svg>
     </div>
@@ -169,7 +227,7 @@ function Step({
   );
 }
 
-// ========== ILLUSTRATION 1: UPLOAD (original) ==========
+// ========== ILLUSTRATION 1: UPLOAD ==========
 
 function StepUploadIllustration() {
   return (
@@ -179,31 +237,13 @@ function StepUploadIllustration() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* 4 tilted polaroid photos being dropped in */}
-      {/* Back polaroid */}
       <g transform="translate(40, 30) rotate(-8)">
-        <rect
-          width="50"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="1"
-        />
+        <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#d4a574" />
         <circle cx="25" cy="25" r="8" fill="#8b6f47" opacity="0.4" />
       </g>
-
-      {/* Middle left */}
       <g transform="translate(70, 45) rotate(4)">
-        <rect
-          width="50"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="1"
-        />
+        <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#e8a87c" />
         <path
           d="M 8 30 L 18 20 L 28 28 L 38 18 L 46 26 L 46 46 L 4 46 Z"
@@ -211,51 +251,17 @@ function StepUploadIllustration() {
           opacity="0.5"
         />
       </g>
-
-      {/* Front right */}
       <g transform="translate(100, 35) rotate(-3)">
-        <rect
-          width="50"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="1"
-        />
+        <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#c9b89a" />
         <circle cx="18" cy="20" r="5" fill="#8a7560" opacity="0.5" />
-        <rect
-          x="10"
-          y="28"
-          width="30"
-          height="14"
-          fill="#8a7560"
-          opacity="0.4"
-          rx="1"
-        />
+        <rect x="10" y="28" width="30" height="14" fill="#8a7560" opacity="0.4" rx="1" />
       </g>
-
-      {/* Top front */}
       <g transform="translate(130, 50) rotate(8)">
-        <rect
-          width="50"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="1"
-        />
+        <rect width="50" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="1" />
         <rect x="4" y="4" width="42" height="42" fill="#d4a5a5" />
-        <path
-          d="M 10 36 Q 25 22 40 36"
-          stroke="#8a7560"
-          strokeWidth="1.5"
-          fill="none"
-          opacity="0.6"
-        />
+        <path d="M 10 36 Q 25 22 40 36" stroke="#8a7560" strokeWidth="1.5" fill="none" opacity="0.6" />
       </g>
-
-      {/* Downward arrows */}
       <g opacity="0.6">
         <path
           d="M 100 115 L 100 130 M 95 125 L 100 130 L 105 125"
@@ -265,8 +271,6 @@ function StepUploadIllustration() {
           strokeLinecap="round"
         />
       </g>
-
-      {/* Little sparkles */}
       <g fill="#c9b89a" opacity="0.7">
         <path d="M 30 70 L 31 74 L 35 75 L 31 76 L 30 80 L 29 76 L 25 75 L 29 74 Z" />
         <path d="M 170 25 L 171 28 L 174 29 L 171 30 L 170 33 L 169 30 L 166 29 L 169 28 Z" />
@@ -275,7 +279,7 @@ function StepUploadIllustration() {
   );
 }
 
-// ========== ILLUSTRATION 2: PICK YOUR VIBE (original) ==========
+// ========== ILLUSTRATION 2: PICK YOUR VIBE ==========
 
 function StepStyleIllustration() {
   return (
@@ -285,99 +289,38 @@ function StepStyleIllustration() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Swatch 1: B&W */}
       <g transform="translate(20, 40)">
-        <rect
-          width="45"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="2"
-        />
+        <rect width="45" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="2" />
         <rect x="4" y="4" width="37" height="37" fill="#3a3a3a" />
         <rect x="4" y="4" width="37" height="37" fill="url(#bwGrad)" />
-        <text
-          x="22.5"
-          y="54"
-          textAnchor="middle"
-          fontSize="5"
-          fontFamily="monospace"
-          fill="#3a2f25"
-        >
+        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">
           B&amp;W
         </text>
       </g>
-
-      {/* Swatch 2: Warm (selected, larger) */}
       <g transform="translate(75, 25)">
-        <rect
-          width="50"
-          height="68"
-          fill="white"
-          stroke="#3a2f25"
-          strokeWidth="1.5"
-          rx="2"
-        />
+        <rect width="50" height="68" fill="white" stroke="#3a2f25" strokeWidth="1.5" rx="2" />
         <rect x="4" y="4" width="42" height="42" fill="url(#warmGrad)" />
-        <text
-          x="25"
-          y="58"
-          textAnchor="middle"
-          fontSize="5.5"
-          fontFamily="monospace"
-          fill="#3a2f25"
-          fontWeight="bold"
-        >
+        <text x="25" y="58" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">
           WARM
         </text>
-        {/* Checkmark badge */}
         <circle cx="46" cy="4" r="5" fill="#3a2f25" />
-        <path
-          d="M 43.5 4 L 45.5 6 L 48.5 2"
-          stroke="#f5f1e8"
-          strokeWidth="1.2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M 43.5 4 L 45.5 6 L 48.5 2" stroke="#f5f1e8" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-
-      {/* Swatch 3: Film */}
       <g transform="translate(135, 40)">
-        <rect
-          width="45"
-          height="60"
-          fill="white"
-          stroke="#c9b89a"
-          strokeWidth="0.8"
-          rx="2"
-        />
+        <rect width="45" height="60" fill="white" stroke="#c9b89a" strokeWidth="0.8" rx="2" />
         <rect x="4" y="4" width="37" height="37" fill="url(#filmGrad)" />
-        <text
-          x="22.5"
-          y="54"
-          textAnchor="middle"
-          fontSize="5"
-          fontFamily="monospace"
-          fill="#3a2f25"
-        >
+        <text x="22.5" y="54" textAnchor="middle" fontSize="5" fontFamily="monospace" fill="#3a2f25">
           FILM
         </text>
       </g>
-
-      {/* Little pointer/hand at center */}
       <g transform="translate(97, 100)">
         <path d="M 0 0 L 6 -8 L 12 0 Z" fill="#3a2f25" opacity="0.75" />
       </g>
-
-      {/* Sparkles */}
       <g fill="#d4a574" opacity="0.8">
         <circle cx="100" cy="18" r="1.5" />
         <circle cx="108" cy="15" r="1" />
         <circle cx="92" cy="16" r="1" />
       </g>
-
       <defs>
         <linearGradient id="bwGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#6a6a6a" />
@@ -398,34 +341,16 @@ function StepStyleIllustration() {
   );
 }
 
-// ========== ILLUSTRATION 3: DOWNLOAD (original, thinner borders) ==========
+// ========== ILLUSTRATION 3: DOWNLOAD ==========
 
 function StepDownloadIllustration() {
   return (
-    <svg
-      viewBox="0 0 200 150"
-      className="w-full h-full"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Film strip — thinner borders */}
+    <svg viewBox="0 0 200 150" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(80, 22) rotate(-3)">
-        {/* Film strip base — less padding around frames */}
-        <rect
-          width="42"
-          height="92"
-          fill="#1a1612"
-          stroke="#3a2f25"
-          strokeWidth="0.3"
-          rx="2"
-        />
-
-        {/* 3 photo frames — less black padding */}
+        <rect width="42" height="92" fill="#1a1612" stroke="#3a2f25" strokeWidth="0.3" rx="2" />
         <rect x="5" y="6" width="32" height="24" fill="#d4a574" rx="0.5" />
         <rect x="5" y="34" width="32" height="24" fill="#e89b5a" rx="0.5" />
         <rect x="5" y="62" width="32" height="24" fill="#c48850" rx="0.5" />
-
-        {/* Perforations — left (smaller, tighter to edge) */}
         <rect x="1.5" y="10" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="1.5" y="22" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="1.5" y="34" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
@@ -433,8 +358,6 @@ function StepDownloadIllustration() {
         <rect x="1.5" y="58" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="1.5" y="70" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="1.5" y="82" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
-
-        {/* Perforations — right */}
         <rect x="38" y="10" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="38" y="22" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="38" y="34" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
@@ -443,46 +366,16 @@ function StepDownloadIllustration() {
         <rect x="38" y="70" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
         <rect x="38" y="82" width="2.5" height="2.5" fill="#f5f1e8" rx="0.3" />
       </g>
-
-      {/* Download arrow circle */}
       <g transform="translate(140, 60)">
         <circle cx="0" cy="0" r="14" fill="#3a2f25" />
-        <path
-          d="M 0 -6 L 0 5 M -4 1 L 0 5 L 4 1"
-          stroke="#f5f1e8"
-          strokeWidth="1.6"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M 0 -6 L 0 5 M -4 1 L 0 5 L 4 1" stroke="#f5f1e8" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-
-      {/* PNG label */}
       <g transform="translate(140, 95)">
-        <rect
-          x="-14"
-          y="-5"
-          width="28"
-          height="10"
-          fill="#fdf6e5"
-          stroke="#c9b89a"
-          strokeWidth="0.5"
-          rx="1"
-        />
-        <text
-          x="0"
-          y="2"
-          textAnchor="middle"
-          fontSize="5.5"
-          fontFamily="monospace"
-          fill="#3a2f25"
-          fontWeight="bold"
-        >
+        <rect x="-14" y="-5" width="28" height="10" fill="#fdf6e5" stroke="#c9b89a" strokeWidth="0.5" rx="1" />
+        <text x="0" y="2" textAnchor="middle" fontSize="5.5" fontFamily="monospace" fill="#3a2f25" fontWeight="bold">
           .PNG
         </text>
       </g>
-
-      {/* Sparkles */}
       <g fill="#d4a574" opacity="0.8">
         <path d="M 40 50 L 41 54 L 45 55 L 41 56 L 40 60 L 39 56 L 35 55 L 39 54 Z" />
         <circle cx="170" cy="30" r="1.5" />

@@ -1,6 +1,4 @@
 // Composites processed images into a realistic film strip layout.
-// Supports vertical or horizontal orientation, black or ivory film strip color,
-// and per-photo crop (zoom + offset).
 
 import { applyStyle, FilmStyle, loadImage } from "./imageProcessing";
 
@@ -15,7 +13,7 @@ export interface PhotoCrop {
 
 export interface StripOptions {
   imageSrcs: string[];
-  crops?: PhotoCrop[]; // optional per-photo crop (same length as imageSrcs)
+  crops?: PhotoCrop[];
   style: FilmStyle;
   orientation?: Orientation;
   borderColor?: BorderColor;
@@ -53,20 +51,16 @@ export async function generateFilmStrip(
     : generateHorizontalStrip(opts, borderColor);
 }
 
-// ========== VERTICAL STRIP ==========
-
 async function generateVerticalStrip(
   opts: StripOptions,
   variant: BorderColor
 ): Promise<HTMLCanvasElement> {
   const frameWidth = opts.frameWidth ?? 600;
   const frameHeight = opts.frameHeight ?? 450;
-
   const sideMargin = 50;
   const topBottomMargin = 26;
   const gap = 10;
   const cornerRadius = 4;
-
   const colors = filmColors(variant);
 
   const stripWidth = frameWidth + sideMargin * 2;
@@ -126,20 +120,16 @@ async function generateVerticalStrip(
   return canvas;
 }
 
-// ========== HORIZONTAL STRIP ==========
-
 async function generateHorizontalStrip(
   opts: StripOptions,
   variant: BorderColor
 ): Promise<HTMLCanvasElement> {
   const frameWidth = opts.frameWidth ?? 450;
   const frameHeight = opts.frameHeight ?? 600;
-
   const topBottomMargin = 50;
   const leftRightMargin = 26;
   const gap = 10;
   const cornerRadius = 4;
-
   const colors = filmColors(variant);
 
   const stripHeight = frameHeight + topBottomMargin * 2;
@@ -200,7 +190,10 @@ async function generateHorizontalStrip(
 }
 
 // ========== COVER FIT WITH CROP ==========
-// Applies zoom + offset to mirror what the user saw in the crop editor.
+// Mirrors the editor's rendering behavior:
+// Image uses object-fit: cover at zoom=1 (fills frame, crops overflow).
+// Offset lets you pan in whichever direction has overflow.
+// Zoom > 1 crops in further, allowing more pan.
 
 async function applyStyleCoverFit(
   img: HTMLImageElement,
@@ -214,33 +207,47 @@ async function applyStyleCoverFit(
   cropCanvas.height = h;
   const cctx = cropCanvas.getContext("2d")!;
 
-  // 1. First compute the base "cover" source rect (what fills the frame at zoom=1, offset=0)
   const imgRatio = img.width / img.height;
   const frameRatio = w / h;
-  let baseSw = img.width;
-  let baseSh = img.height;
 
+  // Base "cover" source dimensions (at zoom=1, centered, fills frame)
+  let baseSw: number;
+  let baseSh: number;
   if (imgRatio > frameRatio) {
-    // image wider than frame — crop sides
+    baseSh = img.height;
     baseSw = img.height * frameRatio;
   } else {
-    // image taller than frame — crop top/bottom
+    baseSw = img.width;
     baseSh = img.width / frameRatio;
   }
 
-  // 2. Apply zoom — shrink source rect proportionally (higher zoom = smaller source area)
+  // Apply zoom — shrink source rect (showing less image, zoomed in more)
   const sw = baseSw / crop.zoom;
   const sh = baseSh / crop.zoom;
 
-  // 3. Apply offset — shift source rect within the image
-  // In the UI, offsetX > 0 means user dragged image LEFT (revealing more of RIGHT side)
-  // So the source rect's center should shift RIGHT by that amount
+  // Offset: crop.offsetX and offsetY are in % of the preview container.
+  // In the preview, a 100% offset moves the image by a full frame width.
+  // Here we convert that to actual pixel shift on the source image.
+  // The max meaningful offset equals how much of the image overflows the frame.
+  // At cover-fit zoom=1: if horizontal overflow = (imgRatio/frameRatio - 1),
+  //   max offsetX (in preview %) = (imgRatio/frameRatio - 1) * 50
+  // That corresponds to max pixel shift of (img.width - baseSw) / 2.
+
+  // The relationship: in the preview, translating by X% of the container equals
+  // shifting the image by X% of the frame width (in display space).
+  // Since the rendered image at cover is (baseSw scaled up to frame), 1% of
+  // frame width = (baseSw / 100) of the source image in pixels — but only
+  // when zoom=1. When zoomed, the rendered image is larger by factor `zoom`,
+  // so 1% of frame = (baseSw / 100 / zoom) source pixels.
+
+  const srcShiftPerPercentX = baseSw / 100 / crop.zoom;
+  const srcShiftPerPercentY = baseSh / 100 / crop.zoom;
+
+  const offsetPxX = crop.offsetX * srcShiftPerPercentX;
+  const offsetPxY = crop.offsetY * srcShiftPerPercentY;
+
   const imgCenterX = img.width / 2;
   const imgCenterY = img.height / 2;
-
-  // Convert offset percentage to pixels relative to base cover area
-  const offsetPxX = (crop.offsetX / 100) * baseSw;
-  const offsetPxY = (crop.offsetY / 100) * baseSh;
 
   let sx = imgCenterX - sw / 2 + offsetPxX;
   let sy = imgCenterY - sh / 2 + offsetPxY;
@@ -255,8 +262,6 @@ async function applyStyleCoverFit(
   const wrapped = await loadImage(dataUrl);
   return applyStyle(wrapped, style, w, h);
 }
-
-// ========== HELPERS ==========
 
 function roundedRectPath(
   ctx: CanvasRenderingContext2D,

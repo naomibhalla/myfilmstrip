@@ -5,7 +5,6 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
   TouchSensor,
   MouseSensor,
   useSensor,
@@ -48,9 +47,6 @@ export default function Home() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
   // Sensors tuned for press-hold-drag on mobile
-  // - MouseSensor for desktop (distance threshold)
-  // - TouchSensor with 350ms delay + small tolerance = press-and-hold activation
-  //   (users won't accidentally drag when trying to scroll)
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
@@ -265,6 +261,7 @@ function HomeScreen({
           <HeroComposition />
         </div>
 
+        {/* Home CTAs — no icons */}
         <div className="flex flex-col gap-3 w-full max-w-[360px] mb-4">
           <button onClick={onUpload} className="btn-ink">
             upload photos
@@ -498,7 +495,7 @@ function EditorScreen({
           onClick={onBack}
           className="font-mono font-light text-xs tracking-widest text-sepia hover:text-ink transition-colors"
         >
-          back
+          ← back
         </button>
         <div className="text-right">
           <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-sepia">
@@ -523,9 +520,10 @@ function EditorScreen({
           {photos.length > 1 && (
             <button
               onClick={onShuffle}
-              className="font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40"
+              className="font-mono font-light text-[10px] tracking-widest uppercase bg-sunset/20 text-ink px-3 py-2 rounded-sm hover:bg-sunset/40 transition-colors border border-sunset/40 inline-flex items-center gap-1.5"
             >
-              shuffle
+              <span>shuffle</span>
+              <span>↻</span>
             </button>
           )}
         </div>
@@ -597,7 +595,7 @@ function EditorScreen({
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              vertical
+              ↓ vertical
             </button>
             <button
               onClick={() => onOrientationChange("horizontal")}
@@ -607,7 +605,7 @@ function EditorScreen({
                   : "bg-transparent text-ink border-sand hover:border-ink"
               }`}
             >
-              horizontal
+              → horizontal
             </button>
           </div>
         </div>
@@ -647,13 +645,16 @@ function EditorScreen({
         disabled={photos.length === 0}
         whileHover={{ scale: photos.length > 0 ? 1.02 : 1 }}
         whileTap={{ scale: photos.length > 0 ? 0.98 : 1 }}
-        className={`w-full py-5 rounded-sm font-mono font-light text-sm tracking-[4px] uppercase transition-all ${
+        className={`w-full py-5 rounded-sm font-mono font-light text-sm tracking-[4px] uppercase transition-all inline-flex items-center justify-center gap-2 ${
           photos.length === 0
             ? "bg-sand/40 text-faded cursor-not-allowed"
             : "bg-ink text-cream hover:bg-tomato sticker-shadow"
         }`}
       >
-        {photos.length === 0 ? "add photos to continue" : "develop my strip"}
+        <span>
+          {photos.length === 0 ? "add photos to continue" : "develop my strip"}
+        </span>
+        {photos.length > 0 && <span>✿</span>}
       </motion.button>
 
       <div className="text-center font-italic italic text-faded text-xs mt-4">
@@ -689,10 +690,10 @@ function ResultScreen({
           onClick={onBack}
           className="font-mono font-light text-xs tracking-widest text-sepia hover:text-ink"
         >
-          edit
+          ← edit
         </button>
         <div className="font-mono font-light text-[10px] tracking-[3px] uppercase text-sepia">
-          complete
+          complete ✓
         </div>
       </div>
 
@@ -718,11 +719,19 @@ function ResultScreen({
       </motion.div>
 
       <div className="flex flex-col gap-3">
-        <button onClick={onDownload} className="btn-ink w-full">
-          download png
+        <button
+          onClick={onDownload}
+          className="btn-ink w-full inline-flex items-center justify-center gap-2"
+        >
+          <span>download png</span>
+          <span>↓</span>
         </button>
-        <button onClick={onStartOver} className="btn-outline w-full">
-          start over
+        <button
+          onClick={onStartOver}
+          className="btn-outline w-full inline-flex items-center justify-center gap-2"
+        >
+          <span>start over</span>
+          <span>↻</span>
         </button>
       </div>
 

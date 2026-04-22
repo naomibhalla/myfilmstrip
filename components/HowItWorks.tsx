@@ -6,9 +6,12 @@ import { motion } from "framer-motion";
 
 export default function HowItWorks() {
   return (
-    <section className="w-full pb-16 pt-20 md:pt-28">
+    <section className="w-full pb-16 pt-12 md:pt-16">
       <div className="max-w-4xl mx-auto px-6">
-        <div className="text-center mb-8">
+        {/* Scroll cue — gentle pulsing down arrow */}
+        <ScrollCue />
+
+        <div className="text-center mb-8 mt-12 md:mt-16">
           <div className="font-italic italic text-sepia text-sm mb-2">
             three little steps
           </div>
@@ -54,6 +57,29 @@ export default function HowItWorks() {
         </div>
       </div>
     </section>
+  );
+}
+
+// ========== SCROLL CUE ==========
+
+function ScrollCue() {
+  return (
+    <motion.div
+      className="flex flex-col items-center gap-1"
+      animate={{ y: [0, 4, 0] }}
+      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+    >
+      <div className="font-mono font-light text-[10px] tracking-[4px] uppercase text-sepia">
+        how it works
+      </div>
+      <motion.div
+        className="text-sepia text-lg"
+        animate={{ opacity: [0.5, 1, 0.5] }}
+        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+      >
+        ↓
+      </motion.div>
+    </motion.div>
   );
 }
 

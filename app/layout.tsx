@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: "myfilmstrip — tiny memories, made with love",
   description:
     "turn your favourite photos into vintage film strips. free, instantly, no signup.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -22,7 +27,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-        href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=DM+Serif+Display&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cedarville+Cursive&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=DM+Serif+Display&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cedarville+Cursive&display=swap"
           rel="stylesheet"
         />
       </head>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background rounded square (cream/warm) -->
+  <rect width="64" height="64" rx="12" fill="#f5f1e8"/>
+
+  <!-- Camera body (ink/dark brown) -->
+  <rect x="8" y="18" width="48" height="34" rx="4" fill="#3a2f25"/>
+
+  <!-- Top viewfinder bump -->
+  <rect x="22" y="12" width="20" height="8" rx="2" fill="#3a2f25"/>
+
+  <!-- Lens outer ring (lighter brown) -->
+  <circle cx="32" cy="35" r="12" fill="#8a7560"/>
+
+  <!-- Lens middle ring -->
+  <circle cx="32" cy="35" r="9" fill="#3a2f25"/>
+
+  <!-- Lens inner glass (cream reflection) -->
+  <circle cx="32" cy="35" r="6" fill="#c9b89a"/>
+
+  <!-- Lens highlight (small white dot top-left for glass feel) -->
+  <circle cx="29" cy="32" r="2" fill="#f5f1e8" opacity="0.9"/>
+
+  <!-- Flash/accent dot top right -->
+  <circle cx="48" cy="25" r="2" fill="#d96846"/>
+</svg>

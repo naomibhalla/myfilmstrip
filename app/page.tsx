@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { AnimatePresence, motion } from "framer-motion";
 
-import SortablePhoto from "@/components/SortablePhoto";
+import SortablePhoto, { PhotoCrop } from "@/components/SortablePhoto";
 import StylePicker from "@/components/StylePicker";
 import DevelopingLoader from "@/components/DevelopingLoader";
 import CameraCapture from "@/components/CameraCapture";
@@ -32,21 +32,22 @@ import {
   BorderColor,
 } from "@/lib/filmStripLayout";
 
-type Photo = { id: string; src: string };
+type Photo = { id: string; src: string; crop: PhotoCrop };
 type Screen = "home" | "upload" | "editor" | "camera" | "result";
 
 const ROTATIONS = [-2, 1.5, -1, 2.5];
+const DEFAULT_CROP: PhotoCrop = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [style, setStyle] = useState<FilmStyle>("warm-vintage");
   const [orientation, setOrientation] = useState<Orientation>("vertical");
-  const [borderColor, setBorderColor] = useState<BorderColor>("white");
+  const [borderColor, setBorderColor] = useState<BorderColor>("black"); // ← black default
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
-  // Sensors tuned for press-hold-drag on mobile
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
@@ -67,6 +68,7 @@ export default function Home() {
               resolve({
                 id: `${Date.now()}-${Math.random()}`,
                 src: e.target!.result as string,
+                crop: { ...DEFAULT_CROP },
               });
             reader.readAsDataURL(file);
           })
@@ -88,9 +90,15 @@ export default function Home() {
 
   function handleRemove(id: string) {
     setPhotos((p) => p.filter((x) => x.id !== id));
+    if (editingPhotoId === id) setEditingPhotoId(null);
+  }
+
+  function handleCropChange(id: string, crop: PhotoCrop) {
+    setPhotos((p) => p.map((x) => (x.id === id ? { ...x, crop } : x)));
   }
 
   function handleShuffle() {
+    setEditingPhotoId(null);
     setPhotos((p) => {
       const copy = [...p];
       for (let i = copy.length - 1; i > 0; i--) {
@@ -116,6 +124,7 @@ export default function Home() {
     const newPhotos = dataUrls.map((src, i) => ({
       id: `cam-${Date.now()}-${i}`,
       src,
+      crop: { ...DEFAULT_CROP },
     }));
     setPhotos(newPhotos);
     setScreen("editor");
@@ -123,11 +132,13 @@ export default function Home() {
 
   async function handleGenerate() {
     if (photos.length === 0) return;
+    setEditingPhotoId(null);
     setIsGenerating(true);
     try {
       const [canvas] = await Promise.all([
         generateFilmStrip({
           imageSrcs: photos.map((p) => p.src),
+          crops: photos.map((p) => p.crop),
           style,
           orientation,
           borderColor,
@@ -156,6 +167,7 @@ export default function Home() {
   function handleStartOver() {
     setPhotos([]);
     setResultUrl(null);
+    setEditingPhotoId(null);
     setScreen("home");
   }
 
@@ -180,6 +192,7 @@ export default function Home() {
           <EditorScreen
             key="editor"
             photos={photos}
+            editingPhotoId={editingPhotoId}
             style={style}
             orientation={orientation}
             borderColor={borderColor}
@@ -188,6 +201,11 @@ export default function Home() {
             onBorderColorChange={setBorderColor}
             onAddMoreFiles={handleEditorAddMore}
             onRemove={handleRemove}
+            onCropChange={handleCropChange}
+            onEditToggle={(id) =>
+              setEditingPhotoId((curr) => (curr === id ? null : id))
+            }
+            onEditClose={() => setEditingPhotoId(null)}
             onShuffle={handleShuffle}
             onDragEnd={handleDragEnd}
             onGenerate={handleGenerate}
@@ -261,7 +279,6 @@ function HomeScreen({
           <HeroComposition />
         </div>
 
-        {/* Home CTAs — no icons */}
         <div className="flex flex-col gap-3 w-full max-w-[360px] mb-4">
           <button onClick={onUpload} className="btn-ink">
             upload photos
@@ -436,6 +453,7 @@ function HeroComposition() {
 
 function EditorScreen({
   photos,
+  editingPhotoId,
   style,
   orientation,
   borderColor,
@@ -444,6 +462,9 @@ function EditorScreen({
   onBorderColorChange,
   onAddMoreFiles,
   onRemove,
+  onCropChange,
+  onEditToggle,
+  onEditClose,
   onShuffle,
   onDragEnd,
   onGenerate,
@@ -451,6 +472,7 @@ function EditorScreen({
   sensors,
 }: {
   photos: Photo[];
+  editingPhotoId: string | null;
   style: FilmStyle;
   orientation: Orientation;
   borderColor: BorderColor;
@@ -459,6 +481,9 @@ function EditorScreen({
   onBorderColorChange: (b: BorderColor) => void;
   onAddMoreFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
+  onCropChange: (id: string, crop: PhotoCrop) => void;
+  onEditToggle: (id: string) => void;
+  onEditClose: () => void;
   onShuffle: () => void;
   onDragEnd: (e: DragEndEvent) => void;
   onGenerate: () => void;
@@ -516,6 +541,9 @@ function EditorScreen({
             <div className="font-display text-2xl">
               press & hold to reorder ({photos.length}/4)
             </div>
+            <div className="font-italic italic text-faded text-xs mt-1">
+              tap ✎ to reposition or zoom
+            </div>
           </div>
           {photos.length > 1 && (
             <button
@@ -544,11 +572,16 @@ function EditorScreen({
                   id={p.id}
                   src={p.src}
                   index={i}
+                  crop={p.crop}
                   onRemove={() => onRemove(p.id)}
+                  onCropChange={(crop) => onCropChange(p.id, crop)}
                   rotation={ROTATIONS[i] ?? 0}
+                  isEditing={editingPhotoId === p.id}
+                  onEditToggle={() => onEditToggle(p.id)}
+                  onEditClose={onEditClose}
                 />
               ))}
-              {photos.length < 4 && (
+              {photos.length < 4 && !editingPhotoId && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="aspect-[3/4] border-2 border-dashed border-sand/70 bg-ecru/40 hover:bg-ecru hover:border-sepia rounded-sm flex flex-col items-center justify-center gap-2 transition-all group"

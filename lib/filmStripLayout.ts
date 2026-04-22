@@ -1,13 +1,21 @@
 // Composites processed images into a realistic film strip layout.
-// Supports vertical or horizontal orientation, and black or ivory film strip color.
+// Supports vertical or horizontal orientation, black or ivory film strip color,
+// and per-photo crop (zoom + offset).
 
 import { applyStyle, FilmStyle, loadImage } from "./imageProcessing";
 
 export type Orientation = "vertical" | "horizontal";
 export type BorderColor = "white" | "black";
 
+export interface PhotoCrop {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 export interface StripOptions {
   imageSrcs: string[];
+  crops?: PhotoCrop[]; // optional per-photo crop (same length as imageSrcs)
   style: FilmStyle;
   orientation?: Orientation;
   borderColor?: BorderColor;
@@ -15,23 +23,24 @@ export interface StripOptions {
   frameHeight?: number;
 }
 
-// Color palette for the two film strip variants
 function filmColors(variant: BorderColor) {
   if (variant === "white") {
     return {
-      filmBase: "#f0e6d2", // warm ivory
-      innerBezel: "#e0d4be", // slightly darker ivory for frame bezel
-      perforationFill: "#8a7560", // muted brown for holes (visible against ivory)
+      filmBase: "#f0e6d2",
+      innerBezel: "#e0d4be",
+      perforationFill: "#8a7560",
       labelColor: "rgba(90, 70, 50, 0.55)",
     };
   }
   return {
-    filmBase: "#1a1612", // near-black film
+    filmBase: "#1a1612",
     innerBezel: "#2a2420",
-    perforationFill: "#f5f1e8", // cream holes (visible against black)
+    perforationFill: "#f5f1e8",
     labelColor: "rgba(245, 241, 232, 0.4)",
   };
 }
+
+const DEFAULT_CROP: PhotoCrop = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 export async function generateFilmStrip(
   opts: StripOptions
@@ -53,10 +62,9 @@ async function generateVerticalStrip(
   const frameWidth = opts.frameWidth ?? 600;
   const frameHeight = opts.frameHeight ?? 450;
 
-  // Slimmer film strip — less black padding around photos
-  const sideMargin = 50; // space on left/right for perforations (was 80)
-  const topBottomMargin = 26; // top/bottom padding (was 50)
-  const gap = 10; // gap between frames (was 14)
+  const sideMargin = 50;
+  const topBottomMargin = 26;
+  const gap = 10;
   const cornerRadius = 4;
 
   const colors = filmColors(variant);
@@ -72,11 +80,9 @@ async function generateVerticalStrip(
   canvas.height = stripHeight;
   const ctx = canvas.getContext("2d")!;
 
-  // Film base color
   ctx.fillStyle = colors.filmBase;
   ctx.fillRect(0, 0, stripWidth, stripHeight);
 
-  // Subtle film base texture (works for both colors)
   const noiseImg = ctx.getImageData(0, 0, stripWidth, stripHeight);
   const nd = noiseImg.data;
   const noiseStrength = variant === "white" ? 5 : 8;
@@ -92,6 +98,7 @@ async function generateVerticalStrip(
 
   for (let i = 0; i < loaded.length; i++) {
     const img = loaded[i];
+    const crop = opts.crops?.[i] ?? DEFAULT_CROP;
     const y = topBottomMargin + i * (frameHeight + gap);
     const x = sideMargin;
 
@@ -99,10 +106,10 @@ async function generateVerticalStrip(
       img,
       opts.style,
       frameWidth,
-      frameHeight
+      frameHeight,
+      crop
     );
 
-    // Thin inner bezel around each photo
     ctx.fillStyle = colors.innerBezel;
     ctx.fillRect(x - 2, y - 2, frameWidth + 4, frameHeight + 4);
 
@@ -164,6 +171,7 @@ async function generateHorizontalStrip(
 
   for (let i = 0; i < loaded.length; i++) {
     const img = loaded[i];
+    const crop = opts.crops?.[i] ?? DEFAULT_CROP;
     const x = leftRightMargin + i * (frameWidth + gap);
     const y = topBottomMargin;
 
@@ -171,7 +179,8 @@ async function generateHorizontalStrip(
       img,
       opts.style,
       frameWidth,
-      frameHeight
+      frameHeight,
+      crop
     );
 
     ctx.fillStyle = colors.innerBezel;
@@ -190,33 +199,55 @@ async function generateHorizontalStrip(
   return canvas;
 }
 
-// ========== COVER FIT ==========
+// ========== COVER FIT WITH CROP ==========
+// Applies zoom + offset to mirror what the user saw in the crop editor.
 
 async function applyStyleCoverFit(
   img: HTMLImageElement,
   style: FilmStyle,
   w: number,
-  h: number
+  h: number,
+  crop: PhotoCrop
 ): Promise<HTMLCanvasElement> {
   const cropCanvas = document.createElement("canvas");
   cropCanvas.width = w;
   cropCanvas.height = h;
   const cctx = cropCanvas.getContext("2d")!;
 
+  // 1. First compute the base "cover" source rect (what fills the frame at zoom=1, offset=0)
   const imgRatio = img.width / img.height;
   const frameRatio = w / h;
-  let sx = 0,
-    sy = 0,
-    sw = img.width,
-    sh = img.height;
+  let baseSw = img.width;
+  let baseSh = img.height;
 
   if (imgRatio > frameRatio) {
-    sw = img.height * frameRatio;
-    sx = (img.width - sw) / 2;
+    // image wider than frame — crop sides
+    baseSw = img.height * frameRatio;
   } else {
-    sh = img.width / frameRatio;
-    sy = (img.height - sh) / 2;
+    // image taller than frame — crop top/bottom
+    baseSh = img.width / frameRatio;
   }
+
+  // 2. Apply zoom — shrink source rect proportionally (higher zoom = smaller source area)
+  const sw = baseSw / crop.zoom;
+  const sh = baseSh / crop.zoom;
+
+  // 3. Apply offset — shift source rect within the image
+  // In the UI, offsetX > 0 means user dragged image LEFT (revealing more of RIGHT side)
+  // So the source rect's center should shift RIGHT by that amount
+  const imgCenterX = img.width / 2;
+  const imgCenterY = img.height / 2;
+
+  // Convert offset percentage to pixels relative to base cover area
+  const offsetPxX = (crop.offsetX / 100) * baseSw;
+  const offsetPxY = (crop.offsetY / 100) * baseSh;
+
+  let sx = imgCenterX - sw / 2 + offsetPxX;
+  let sy = imgCenterY - sh / 2 + offsetPxY;
+
+  // Clamp so we don't read outside the image
+  sx = Math.max(0, Math.min(img.width - sw, sx));
+  sy = Math.max(0, Math.min(img.height - sh, sy));
 
   cctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
 
@@ -255,7 +286,7 @@ function drawVerticalPerforations(
   sideMargin: number,
   fillColor: string
 ) {
-  const holeW = 22; // slightly smaller for slimmer feel
+  const holeW = 22;
   const holeH = 14;
   const holeSpacing = 26;
   const leftCenterX = sideMargin / 2;
